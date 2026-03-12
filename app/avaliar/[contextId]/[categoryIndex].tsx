@@ -41,6 +41,7 @@ export default function AvaliarScreen() {
   const [ratings, setRatings] = useState<Record<string, number>>({});
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
 
   useEffect(() => {
     loadData();
@@ -66,11 +67,12 @@ export default function AvaliarScreen() {
   const handleSave = async () => {
     const filled = Object.entries(ratings).filter(([, v]) => v > 0);
     if (filled.length === 0) {
-      Alert.alert("Atenção", "Avalie pelo menos um indicador antes de salvar.");
+      setMessage({ text: "Avalie pelo menos um indicador antes de salvar.", error: true });
       return;
     }
 
     setSaving(true);
+    setMessage(null);
     const today = new Date().toISOString().split("T")[0];
 
     const rows = filled.map(([indicadorId, valor]) => ({
@@ -83,18 +85,15 @@ export default function AvaliarScreen() {
       observacoes: "",
     }));
 
-    const { error } = await supabase.from("avaliacoes").upsert(rows, {
-      onConflict: "crianca_id,avaliador_id,indicador_id,data",
-    });
+    const { error } = await supabase.from("avaliacoes").insert(rows);
 
     setSaving(false);
 
     if (error) {
-      Alert.alert("Erro ao salvar", error.message);
+      setMessage({ text: `Erro: ${error.message}`, error: true });
     } else {
-      Alert.alert("Salvo!", `${filled.length} avaliações registradas.`, [
-        { text: "OK", onPress: () => router.back() },
-      ]);
+      setMessage({ text: `${filled.length} avaliações salvas com sucesso!`, error: false });
+      setTimeout(() => router.back(), 1500);
     }
   };
 
@@ -108,7 +107,7 @@ export default function AvaliarScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: `Avaliar — ${categoria.nome}`, headerStyle: { backgroundColor: contexto.cor } }} />
+      <Stack.Screen options={{ title: `Avaliar — ${categoria.nome}` }} />
       <View style={styles.container}>
         {/* Progress */}
         <View style={[styles.progressBar, { backgroundColor: contexto.cor_clara }]}>
@@ -128,6 +127,11 @@ export default function AvaliarScreen() {
         </ScrollView>
 
         <View style={styles.bottomBar}>
+          {message && (
+            <View style={[styles.messageBar, message.error ? styles.messageError : styles.messageSuccess]}>
+              <Text style={styles.messageText}>{message.text}</Text>
+            </View>
+          )}
           <TouchableOpacity
             style={[styles.saveBtn, { backgroundColor: contexto.cor, opacity: saving ? 0.6 : 1 }]}
             onPress={handleSave}
@@ -161,4 +165,8 @@ const styles = StyleSheet.create({
   bottomBar: { position: "absolute", bottom: 0, left: 0, right: 0, padding: 16, paddingBottom: 32, backgroundColor: "#FFF", borderTopWidth: 1, borderTopColor: "#EEE" },
   saveBtn: { padding: 16, borderRadius: 12, alignItems: "center" },
   saveBtnText: { color: "#FFF", fontSize: 16, fontWeight: "700" },
+  messageBar: { padding: 12, borderRadius: 8, marginBottom: 10 },
+  messageError: { backgroundColor: "#FFEBEE" },
+  messageSuccess: { backgroundColor: "#E8F5E9" },
+  messageText: { fontSize: 14, fontWeight: "600", textAlign: "center", color: "#333" },
 });

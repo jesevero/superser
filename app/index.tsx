@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "./_layout";
 import { supabase } from "../data/supabase";
 import Logo from "./Logo";
+import RadarChart from "../components/RadarChart";
 
 type Contexto = { id: string; titulo: string; subtitulo: string; icone: string; cor: string; cor_clara: string };
 type Resumo = { contexto_id: string; media: number; indicadores_avaliados: number; ultima_avaliacao: string };
@@ -56,7 +57,7 @@ export default function HomeScreen() {
         title: "SuperSer",
         headerRight: () => (
           <TouchableOpacity onPress={logout} style={{ marginRight: 12 }}>
-            <MaterialIcons name="logout" size={22} color="#FFF" />
+            <MaterialIcons name="logout" size={22} color="#1E3A5F" />
           </TouchableOpacity>
         ),
       }} />
@@ -83,6 +84,23 @@ export default function HomeScreen() {
             <View style={styles.stat}><Text style={styles.statNumber}>{auth.perfil}</Text><Text style={styles.statLabel}>Perfil</Text></View>
           </View>
         </View>
+
+        {/* Radar Chart */}
+        {contextos.length >= 3 && (
+          <View style={styles.radarCard}>
+            <Text style={styles.radarTitle}>Visão Geral</Text>
+            <RadarChart
+              data={contextos.map((ctx) => {
+                const resumo = resumos.get(ctx.id);
+                return {
+                  label: ctx.titulo,
+                  value: resumo ? resumo.media : 0,
+                  color: ctx.cor,
+                };
+              })}
+            />
+          </View>
+        )}
 
         <Text style={styles.sectionTitle}>Contextos</Text>
         {contextos.map((ctx) => {
@@ -128,6 +146,8 @@ const styles = StyleSheet.create({
   statNumber: { fontSize: 20, fontWeight: "700", color: "#FFF" },
   statLabel: { fontSize: 11, color: "#AAC4E0", marginTop: 2 },
   statDivider: { width: 1, backgroundColor: "rgba(255,255,255,0.2)" },
+  radarCard: { backgroundColor: "#FFF", borderRadius: 16, padding: 20, marginBottom: 24, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2, alignItems: "center" },
+  radarTitle: { fontSize: 18, fontWeight: "700", color: "#1E3A5F", marginBottom: 12, alignSelf: "flex-start" },
   sectionTitle: { fontSize: 18, fontWeight: "700", color: "#1E3A5F", marginBottom: 12 },
   contextCard: { backgroundColor: "#FFF", borderRadius: 12, padding: 16, marginBottom: 12, flexDirection: "row", alignItems: "center", borderLeftWidth: 4, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
   iconCircle: { width: 52, height: 52, borderRadius: 26, justifyContent: "center", alignItems: "center", marginRight: 14 },

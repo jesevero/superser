@@ -1,5 +1,5 @@
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, Stack } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { useAuth } from "./_layout";
@@ -13,21 +13,27 @@ export default function CriancasScreen() {
   const [criancas, setCriancas] = useState<Crianca[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { loadCriancas(); }, []);
+  useEffect(() => { loadCriancas(); }, [auth.avaliadorId, auth.perfil]);
 
   async function loadCriancas() {
     if (!auth.avaliadorId) { setLoading(false); return; }
 
     try {
-      const { data: vinculos } = await supabase
-        .from("vinculos")
-        .select("crianca_id")
-        .eq("avaliador_id", auth.avaliadorId);
-
-      if (vinculos && vinculos.length > 0) {
-        const ids = vinculos.map((v: any) => v.crianca_id);
-        const { data } = await supabase.from("criancas").select("*").in("id", ids).order("nome");
+      // Admin vê todas as crianças
+      if (auth.perfil === "admin") {
+        const { data } = await supabase.from("criancas").select("*").order("nome");
         setCriancas(data || []);
+      } else {
+        const { data: vinculos } = await supabase
+          .from("vinculos")
+          .select("crianca_id")
+          .eq("avaliador_id", auth.avaliadorId);
+
+        if (vinculos && vinculos.length > 0) {
+          const ids = vinculos.map((v: any) => v.crianca_id);
+          const { data } = await supabase.from("criancas").select("*").in("id", ids).order("nome");
+          setCriancas(data || []);
+        }
       }
     } catch (e) {
       console.log("Erro ao carregar crianças:", e);
@@ -47,6 +53,22 @@ export default function CriancasScreen() {
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#1E3A5F" /></View>;
 
   return (
+    <>
+    <Stack.Screen options={{
+      title: "Selecionar Criança",
+      headerRight: () => (
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          {auth.perfil === "admin" && (
+            <TouchableOpacity onPress={() => router.push("/admin" as any)} style={{ marginRight: 12 }}>
+              <MaterialIcons name="settings" size={22} color="#1E3A5F" />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={logout} style={{ marginRight: 12 }}>
+            <MaterialIcons name="logout" size={22} color="#1E3A5F" />
+          </TouchableOpacity>
+        </View>
+      ),
+    }} />
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.hello}>Olá, {auth.nome}!</Text>
       <Text style={styles.instrucao}>Selecione uma criança para avaliar:</Text>
@@ -75,6 +97,7 @@ export default function CriancasScreen() {
         ))
       )}
     </ScrollView>
+    </>
   );
 }
 

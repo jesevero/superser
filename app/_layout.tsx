@@ -98,9 +98,29 @@ export default function RootLayout() {
         };
       }
 
-      // Usuário autenticado mas sem perfil de avaliador - criar automaticamente
-      console.log("Avaliador não encontrado, criando perfil...");
+      // Try matching by email (admin may have pre-created avaliador without auth_id)
       const { data: { user } } = await supabase.auth.getUser();
+      if (user?.email) {
+        const { data: byEmail } = await supabase
+          .from("avaliadores")
+          .select("*")
+          .eq("email", user.email)
+          .is("auth_id", null)
+          .maybeSingle();
+
+        if (byEmail) {
+          await supabase.from("avaliadores").update({ auth_id: authId }).eq("id", byEmail.id);
+          return {
+            userId: authId,
+            avaliadorId: byEmail.id,
+            nome: byEmail.nome,
+            perfil: byEmail.perfil,
+          };
+        }
+      }
+
+      // Create new avaliador
+      console.log("Avaliador não encontrado, criando perfil...");
       if (user) {
         const { data: novo, error: insertErr } = await supabase
           .from("avaliadores")
@@ -166,14 +186,13 @@ export default function RootLayout() {
 
   return (
     <AuthContext.Provider value={contextValue}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <Stack
         screenOptions={{
-          headerStyle: { backgroundColor: "#1E3A5F" },
-          headerTintColor: "#fff",
-          headerTitleStyle: { fontWeight: "bold" },
+          headerStyle: { backgroundColor: "#FFF" },
+          headerTintColor: "#1E3A5F",
+          headerTitleStyle: { fontWeight: "bold", color: "#1E3A5F" },
           contentStyle: { backgroundColor: "#F5F7FA" },
-          headerLeft: () => <HeaderLogo />,
         }}
       >
         <Stack.Screen name="login" options={{ headerShown: false }} />
@@ -182,6 +201,13 @@ export default function RootLayout() {
         <Stack.Screen name="context/[id]" options={{ title: "" }} />
         <Stack.Screen name="avaliar/[contextId]/[categoryIndex]" options={{ title: "Avaliar", presentation: "modal" }} />
         <Stack.Screen name="historico/[contextId]" options={{ title: "Histórico" }} />
+        <Stack.Screen name="admin/index" options={{ title: "Painel Admin" }} />
+        <Stack.Screen name="admin/criancas" options={{ title: "Gerenciar Crianças" }} />
+        <Stack.Screen name="admin/avaliadores" options={{ title: "Gerenciar Avaliadores" }} />
+        <Stack.Screen name="admin/vinculos" options={{ title: "Gerenciar Vínculos" }} />
+        <Stack.Screen name="admin/contextos" options={{ title: "Gerenciar Contextos" }} />
+        <Stack.Screen name="admin/categorias" options={{ title: "Gerenciar Categorias" }} />
+        <Stack.Screen name="admin/indicadores" options={{ title: "Gerenciar Indicadores" }} />
       </Stack>
     </AuthContext.Provider>
   );

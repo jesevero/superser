@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, Platform } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, Platform, ImageBackground } from "react-native";
 import { useState } from "react";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -34,6 +34,7 @@ export default function LoginScreen() {
     // Buscar ou criar perfil do avaliador
     let avaliador = null;
 
+    // 1. Try by auth_id
     const { data: existente } = await supabase
       .from("avaliadores")
       .select("*")
@@ -43,24 +44,37 @@ export default function LoginScreen() {
     if (existente) {
       avaliador = existente;
     } else {
-      // Criar perfil automaticamente
-      const { data: novo, error: insertErr } = await supabase
+      // 2. Try by email (admin may have pre-created the avaliador without auth_id)
+      const { data: byEmail } = await supabase
         .from("avaliadores")
-        .insert({
-          auth_id: data.user.id,
-          nome: nome || loginEmail.split("@")[0],
-          email: loginEmail,
-          perfil: "familia",
-        })
-        .select()
-        .single();
+        .select("*")
+        .eq("email", loginEmail)
+        .is("auth_id", null)
+        .maybeSingle();
 
-      if (insertErr) {
-        console.log("Erro ao criar perfil:", insertErr.message);
-        // Tentar continuar mesmo sem perfil na tabela
-        avaliador = { id: data.user.id, nome: loginEmail.split("@")[0], perfil: "familia" };
+      if (byEmail) {
+        // Link the existing avaliador to this auth account
+        await supabase.from("avaliadores").update({ auth_id: data.user.id }).eq("id", byEmail.id);
+        avaliador = { ...byEmail, auth_id: data.user.id };
       } else {
-        avaliador = novo;
+        // 3. Create new avaliador
+        const { data: novo, error: insertErr } = await supabase
+          .from("avaliadores")
+          .insert({
+            auth_id: data.user.id,
+            nome: nome || loginEmail.split("@")[0],
+            email: loginEmail,
+            perfil: "familia",
+          })
+          .select()
+          .single();
+
+        if (insertErr) {
+          console.log("Erro ao criar perfil:", insertErr.message);
+          avaliador = { id: data.user.id, nome: loginEmail.split("@")[0], perfil: "familia" };
+        } else {
+          avaliador = novo;
+        }
       }
     }
 
@@ -131,11 +145,13 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-      <View style={styles.header}>
-        <Logo size={80} />
-        <Text style={styles.title}>SuperSer</Text>
-        <Text style={styles.subtitle}>Acompanhamento Comportamental{"\n"}e do Desenvolvimento</Text>
-      </View>
+      <ImageBackground source={require("../assets/banner.png")} style={styles.header} resizeMode="cover">
+        <View style={styles.headerOverlay}>
+          <Logo size={80} />
+          <Text style={styles.title}>SuperSer</Text>
+          <Text style={styles.subtitle}>Acompanhamento Comportamental{"\n"}e do Desenvolvimento</Text>
+        </View>
+      </ImageBackground>
 
       <View style={styles.form}>
         <Text style={styles.formTitle}>{modo === "login" ? "Entrar" : "Criar Conta"}</Text>
@@ -171,7 +187,8 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#1E3A5F" },
-  header: { flex: 1, justifyContent: "center", alignItems: "center", paddingTop: 60 },
+  header: { flex: 1 },
+  headerOverlay: { flex: 1, justifyContent: "center", alignItems: "center", paddingTop: 60, backgroundColor: "rgba(30, 58, 95, 0.7)" },
   title: { fontSize: 32, fontWeight: "800", color: "#FFF", marginTop: 16 },
   subtitle: { fontSize: 14, color: "#AAC4E0", textAlign: "center", marginTop: 6, lineHeight: 20 },
   form: { backgroundColor: "#FFF", borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 28, paddingBottom: 40 },

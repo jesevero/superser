@@ -74,7 +74,7 @@ export default function ContextScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: contexto.titulo, headerStyle: { backgroundColor: contexto.cor } }} />
+      <Stack.Screen options={{ title: contexto.titulo }} />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         {/* Header */}
         <View style={[styles.header, { backgroundColor: contexto.cor }]}>
