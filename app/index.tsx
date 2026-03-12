@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Image } from "react-native";
 import { useRouter, useLocalSearchParams, Stack } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
@@ -26,6 +26,7 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [criancaNome, setCriancaNome] = useState("");
   const [criancaId, setCriancaId] = useState("");
+  const [criancaFoto, setCriancaFoto] = useState<string | null>(null);
 
   useEffect(() => {
     if (params.criancaId) {
@@ -38,6 +39,10 @@ export default function HomeScreen() {
   }, [params.criancaId]);
 
   async function loadData(childId: string) {
+    // Load child photo
+    const { data: childData } = await supabase.from("criancas").select("foto_url").eq("id", childId).maybeSingle();
+    setCriancaFoto(childData?.foto_url || null);
+
     const { data: ctxData } = await supabase.from("contextos").select("*").order("ordem");
     setContextos(ctxData || []);
     const { data: resumoData } = await supabase.from("v_resumo_contexto").select("*").eq("crianca_id", childId);
@@ -65,7 +70,11 @@ export default function HomeScreen() {
         <View style={styles.headerCard}>
           <View style={styles.headerTop}>
             <View style={styles.headerLeft}>
-              <Logo size={40} />
+              {criancaFoto ? (
+                <Image source={{ uri: criancaFoto }} style={styles.childPhoto} />
+              ) : (
+                <Logo size={40} />
+              )}
               <View style={styles.headerTitles}>
                 <Text style={styles.headerTitle}>{criancaNome}</Text>
                 <Text style={styles.headerSubtitle}>SuperSer 360°</Text>
@@ -136,6 +145,7 @@ const styles = StyleSheet.create({
   headerCard: { backgroundColor: "#1E3A5F", borderRadius: 16, padding: 24, marginBottom: 24 },
   headerTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
+  childPhoto: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: "rgba(255,255,255,0.3)" },
   headerTitles: { flex: 1 },
   headerTitle: { fontSize: 22, fontWeight: "800", color: "#FFF" },
   headerSubtitle: { fontSize: 14, color: "#AAC4E0", marginTop: 2 },

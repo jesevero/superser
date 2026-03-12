@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Image, ImageBackground } from "react-native";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
@@ -77,13 +77,25 @@ export default function ContextScreen() {
       <Stack.Screen options={{ title: contexto.titulo }} />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         {/* Header */}
-        <View style={[styles.header, { backgroundColor: contexto.cor }]}>
-          <MaterialIcons name={contexto.icone} size={36} color="#FFF" />
-          <View style={styles.headerText}>
-            <Text style={styles.headerTitle}>{contexto.titulo}</Text>
-            <Text style={styles.headerSub}>{decodeURIComponent(criancaNome || "")} • {contexto.subtitulo}</Text>
+        {contexto.imagem_url ? (
+          <ImageBackground source={{ uri: contexto.imagem_url }} style={[styles.header, { backgroundColor: contexto.cor }]} resizeMode="cover">
+            <View style={[styles.headerOverlay, { backgroundColor: contexto.cor }]}>
+              <MaterialIcons name={contexto.icone} size={36} color="#FFF" />
+              <View style={styles.headerText}>
+                <Text style={styles.headerTitle}>{contexto.titulo}</Text>
+                <Text style={styles.headerSub}>{decodeURIComponent(criancaNome || "")} • {contexto.subtitulo}</Text>
+              </View>
+            </View>
+          </ImageBackground>
+        ) : (
+          <View style={[styles.header, { backgroundColor: contexto.cor }]}>
+            <MaterialIcons name={contexto.icone} size={36} color="#FFF" />
+            <View style={styles.headerText}>
+              <Text style={styles.headerTitle}>{contexto.titulo}</Text>
+              <Text style={styles.headerSub}>{decodeURIComponent(criancaNome || "")} • {contexto.subtitulo}</Text>
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Categories */}
         {categorias.map((cat, catIdx) => {
@@ -140,7 +152,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F5F7FA" },
   content: { paddingBottom: 40 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  header: { flexDirection: "row", alignItems: "center", padding: 24, gap: 16 },
+  header: { flexDirection: "row", alignItems: "center", padding: 24, gap: 16, overflow: "hidden" },
+  headerOverlay: { flexDirection: "row", alignItems: "center", padding: 24, gap: 16, opacity: 0.85, flex: 1 },
   headerText: { flex: 1 },
   headerTitle: { fontSize: 24, fontWeight: "800", color: "#FFF" },
   headerSub: { fontSize: 14, color: "rgba(255,255,255,0.8)", marginTop: 2 },

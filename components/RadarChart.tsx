@@ -13,12 +13,12 @@ type Props = {
   maxValue?: number;
 };
 
-export default function RadarChart({ data, size = 280, maxValue = 5 }: Props) {
+export default function RadarChart({ data, size = 320, maxValue = 5 }: Props) {
   if (data.length < 3) return null;
 
   const center = size / 2;
-  const radius = size * 0.35;
-  const labelRadius = radius + 28;
+  const radius = size * 0.28;
+  const labelRadius = radius + 40;
   const n = data.length;
   const angleStep = (2 * Math.PI) / n;
   const startAngle = -Math.PI / 2; // start from top
@@ -101,7 +101,7 @@ export default function RadarChart({ data, size = 280, maxValue = 5 }: Props) {
               fontWeight="600"
               fill={d.value > 0 ? "#1E3A5F" : "#BBB"}
             >
-              {truncateLabel(d.label, 14)}
+              {d.label}
             </SvgText>
           );
         })}
@@ -141,11 +141,6 @@ export default function RadarChart({ data, size = 280, maxValue = 5 }: Props) {
       </View>
     </View>
   );
-}
-
-function truncateLabel(text: string, max: number): string {
-  if (text.length <= max) return text;
-  return text.slice(0, max - 1) + "…";
 }
 
 const styles = StyleSheet.create({

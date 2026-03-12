@@ -1,6 +1,7 @@
 import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from "react-native";
 import { useLocalSearchParams, Stack } from "expo-router";
 import { useEffect, useState } from "react";
+import Svg, { Text as SvgText, Line, G, Circle, Polyline, Defs, LinearGradient, Stop, Rect } from "react-native-svg";
 import { supabase } from "../../data/supabase";
 
 type AvaliacaoHist = {
@@ -14,6 +15,107 @@ type AvaliacaoHist = {
 
 const COLORS_VAL = ["", "#CC0000", "#E65100", "#C37800", "#2E7D32", "#1B5E20"];
 const LABELS = ["", "Muito Baixo", "Baixo", "Regular", "Bom", "Excelente"];
+
+type SessionSummary = {
+  avg: number;
+  date: string;
+  created_at: string;
+};
+
+function LineChart({ sessions, color }: { sessions: SessionSummary[]; color: string }) {
+  const last12 = sessions.slice(0, 12).reverse();
+  if (last12.length === 0) return null;
+
+  const chartW = Math.max(340, last12.length * 40 + 50);
+  const chartH = 180;
+  const padL = 28;
+  const padR = 16;
+  const padT = 20;
+  const padB = 36;
+  const areaW = chartW - padL - padR;
+  const areaH = chartH - padT - padB;
+  const maxVal = 5;
+  const stepX = last12.length > 1 ? areaW / (last12.length - 1) : areaW;
+
+  function pointColor(v: number): string {
+    if (v >= 4) return "#2E7D32";
+    if (v >= 3) return "#C37800";
+    return "#CC0000";
+  }
+
+  function formatDate(iso: string): string {
+    const d = new Date(iso + "T12:00:00");
+    return `${d.getDate()}/${d.getMonth() + 1}`;
+  }
+
+  const points = last12.map((s, i) => ({
+    x: padL + i * stepX,
+    y: padT + areaH - (s.avg / maxVal) * areaH,
+    avg: s.avg,
+    date: s.date,
+  }));
+
+  const polylinePoints = points.map((p) => `${p.x},${p.y}`).join(" ");
+
+  // Area fill polygon (line + bottom)
+  const areaPoints = [
+    `${points[0].x},${padT + areaH}`,
+    ...points.map((p) => `${p.x},${p.y}`),
+    `${points[points.length - 1].x},${padT + areaH}`,
+  ].join(" ");
+
+  return (
+    <View style={bStyles.card}>
+      <Text style={bStyles.title}>Evolucao — Ultimas {last12.length} sessoes</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <Svg width={chartW} height={chartH}>
+          <Defs>
+            <LinearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={color} stopOpacity="0.2" />
+              <Stop offset="1" stopColor={color} stopOpacity="0.02" />
+            </LinearGradient>
+          </Defs>
+
+          {/* Grid lines */}
+          {[1, 2, 3, 4, 5].map((v) => {
+            const y = padT + areaH - (v / maxVal) * areaH;
+            return (
+              <G key={`g-${v}`}>
+                <Line x1={padL} y1={y} x2={chartW - padR} y2={y} stroke="#F0F0F0" strokeWidth={0.8} />
+                <SvgText x={padL - 6} y={y + 4} textAnchor="end" fontSize={9} fill="#BBB">{String(v)}</SvgText>
+              </G>
+            );
+          })}
+          <Line x1={padL} y1={padT + areaH} x2={chartW - padR} y2={padT + areaH} stroke="#E0E0E0" strokeWidth={1} />
+
+          {/* Area fill */}
+          <Polyline points={areaPoints} fill="url(#areaGrad)" stroke="none" />
+
+          {/* Line */}
+          <Polyline points={polylinePoints} fill="none" stroke={color} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
+
+          {/* Points + labels */}
+          {points.map((p, i) => (
+            <G key={`p-${i}`}>
+              <Circle cx={p.x} cy={p.y} r={5} fill={pointColor(p.avg)} stroke="#FFF" strokeWidth={2} />
+              <SvgText x={p.x} y={p.y - 10} textAnchor="middle" fontSize={9} fontWeight="700" fill={pointColor(p.avg)}>
+                {p.avg.toFixed(1)}
+              </SvgText>
+              <SvgText x={p.x} y={padT + areaH + 14} textAnchor="middle" fontSize={8} fill="#999">
+                {formatDate(p.date)}
+              </SvgText>
+            </G>
+          ))}
+        </Svg>
+      </ScrollView>
+    </View>
+  );
+}
+
+const bStyles = StyleSheet.create({
+  card: { backgroundColor: "#FFF", borderRadius: 12, padding: 16, marginBottom: 16, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
+  title: { fontSize: 15, fontWeight: "700", color: "#1E3A5F", marginBottom: 12 },
+});
 
 export default function HistoricoScreen() {
   const { contextId, criancaId, criancaNome } = useLocalSearchParams<{
@@ -58,7 +160,6 @@ export default function HistoricoScreen() {
   // Group by session (same created_at minute + same avaliador = same session)
   const sessions = new Map<string, AvaliacaoHist[]>();
   avaliacoes.forEach((a) => {
-    // Round to the minute to group ratings saved together
     const minuteKey = a.created_at.slice(0, 16) + "|" + a.avaliador_nome;
     const list = sessions.get(minuteKey) || [];
     list.push(a);
@@ -66,27 +167,39 @@ export default function HistoricoScreen() {
   });
   const sessionKeys = Array.from(sessions.keys());
 
+  // Build session summaries for chart
+  const sessionSummaries: SessionSummary[] = sessionKeys.map((key) => {
+    const ratings = sessions.get(key) || [];
+    const avg = ratings.reduce((s, r) => s + r.valor, 0) / ratings.length;
+    return { avg, date: ratings[0].data, created_at: ratings[0].created_at };
+  });
+
   function formatDateTime(iso: string): string {
     const d = new Date(iso);
     return d.toLocaleDateString("pt-BR", {
       weekday: "long", day: "numeric", month: "long", year: "numeric",
-    }) + " às " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    }) + " as " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   }
 
   return (
     <>
-      <Stack.Screen options={{ title: `Histórico — ${contexto.titulo}` }} />
+      <Stack.Screen options={{ title: `Historico — ${contexto.titulo}` }} />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <Text style={styles.childName}>{decodeURIComponent(criancaNome || "")}</Text>
-        <Text style={styles.totalText}>{avaliacoes.length} avaliações em {sessionKeys.length} sessões</Text>
+        <Text style={styles.totalText}>{avaliacoes.length} avaliacoes em {sessionKeys.length} sessoes</Text>
+
+        {/* Bar Chart */}
+        {sessionSummaries.length > 0 && (
+          <LineChart sessions={sessionSummaries} color={contexto.cor || "#1E3A5F"} />
+        )}
 
         {sessionKeys.length === 0 ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyText}>Nenhuma avaliação registrada.</Text>
-            <Text style={styles.emptyHint}>Volte ao contexto e toque em "Avaliar" para começar.</Text>
+            <Text style={styles.emptyText}>Nenhuma avaliacao registrada.</Text>
+            <Text style={styles.emptyHint}>Volte ao contexto e toque em "Avaliar" para comecar.</Text>
           </View>
         ) : (
-          sessionKeys.map((key, idx) => {
+          sessionKeys.map((key) => {
             const ratings = sessions.get(key) || [];
             const avg = ratings.reduce((s, r) => s + r.valor, 0) / ratings.length;
             const avaliador = ratings[0]?.avaliador_nome;
@@ -104,7 +217,7 @@ export default function HistoricoScreen() {
                     backgroundColor: avg >= 4 ? "#2E7D32" : avg >= 3 ? "#C37800" : "#CC0000",
                   }]}>
                     <Text style={styles.avgText}>{avg.toFixed(1)}</Text>
-                    <Text style={styles.avgLabel}>média</Text>
+                    <Text style={styles.avgLabel}>media</Text>
                   </View>
                 </View>
                 {ratings.map((r, i) => (

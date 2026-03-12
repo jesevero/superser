@@ -1,17 +1,18 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Image, TextInput } from "react-native";
 import { useRouter, Stack } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { useAuth } from "./_layout";
 import { supabase } from "../data/supabase";
 
-type Crianca = { id: string; nome: string; data_nascimento: string | null };
+type Crianca = { id: string; nome: string; data_nascimento: string | null; foto_url: string | null };
 
 export default function CriancasScreen() {
   const router = useRouter();
   const { auth, logout } = useAuth();
   const [criancas, setCriancas] = useState<Crianca[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filtro, setFiltro] = useState("");
 
   useEffect(() => { loadCriancas(); }, [auth.avaliadorId, auth.perfil]);
 
@@ -19,7 +20,6 @@ export default function CriancasScreen() {
     if (!auth.avaliadorId) { setLoading(false); return; }
 
     try {
-      // Admin vê todas as crianças
       if (auth.perfil === "admin") {
         const { data } = await supabase.from("criancas").select("*").order("nome");
         setCriancas(data || []);
@@ -36,7 +36,7 @@ export default function CriancasScreen() {
         }
       }
     } catch (e) {
-      console.log("Erro ao carregar crianças:", e);
+      console.log("Erro ao carregar criancas:", e);
     }
     setLoading(false);
   }
@@ -50,12 +50,16 @@ export default function CriancasScreen() {
     return `${anos} anos`;
   }
 
+  const filtered = filtro.trim()
+    ? criancas.filter((c) => c.nome.toLowerCase().includes(filtro.toLowerCase()))
+    : criancas;
+
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#1E3A5F" /></View>;
 
   return (
     <>
     <Stack.Screen options={{
-      title: "Selecionar Criança",
+      title: "Selecionar Crianca",
       headerRight: () => (
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           {auth.perfil === "admin" && (
@@ -69,46 +73,82 @@ export default function CriancasScreen() {
         </View>
       ),
     }} />
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.hello}>Olá, {auth.nome}!</Text>
-      <Text style={styles.instrucao}>Selecione uma criança para avaliar:</Text>
+    <View style={styles.container}>
+      <View style={styles.topSection}>
+        <Text style={styles.hello}>Ola, {auth.nome}!</Text>
+        <Text style={styles.instrucao}>Selecione uma crianca para avaliar:</Text>
 
-      {criancas.length === 0 ? (
-        <View style={styles.empty}>
-          <MaterialIcons name="child-care" size={64} color="#DDD" />
-          <Text style={styles.emptyText}>Nenhuma criança vinculada</Text>
-          <Text style={styles.emptyHint}>Peça ao administrador para vincular você a uma criança no painel do Supabase.</Text>
-          <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
-            <MaterialIcons name="logout" size={18} color="#CC0000" />
-            <Text style={styles.logoutText}>Sair</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        criancas.map((c) => (
-          <TouchableOpacity key={c.id} style={styles.card}
-            onPress={() => router.push(`/?criancaId=${c.id}&criancaNome=${encodeURIComponent(c.nome)}`)} activeOpacity={0.7}>
-            <View style={styles.avatar}><MaterialIcons name="child-care" size={32} color="#1E3A5F" /></View>
-            <View style={styles.info}>
-              <Text style={styles.nome}>{c.nome}</Text>
-              {c.data_nascimento && <Text style={styles.idade}>{calcIdade(c.data_nascimento)}</Text>}
-            </View>
-            <MaterialIcons name="chevron-right" size={24} color="#CCC" />
-          </TouchableOpacity>
-        ))
-      )}
-    </ScrollView>
+        {criancas.length > 3 && (
+          <View style={styles.searchBar}>
+            <MaterialIcons name="search" size={20} color="#999" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Filtrar por nome..."
+              placeholderTextColor="#BBB"
+              value={filtro}
+              onChangeText={setFiltro}
+              autoCapitalize="none"
+            />
+            {filtro.length > 0 && (
+              <TouchableOpacity onPress={() => setFiltro("")}>
+                <MaterialIcons name="close" size={20} color="#999" />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </View>
+
+      <ScrollView contentContainerStyle={styles.content}>
+        {criancas.length === 0 ? (
+          <View style={styles.empty}>
+            <MaterialIcons name="child-care" size={64} color="#DDD" />
+            <Text style={styles.emptyText}>Nenhuma crianca vinculada</Text>
+            <Text style={styles.emptyHint}>Peca ao administrador para vincular voce a uma crianca.</Text>
+            <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
+              <MaterialIcons name="logout" size={18} color="#CC0000" />
+              <Text style={styles.logoutText}>Sair</Text>
+            </TouchableOpacity>
+          </View>
+        ) : filtered.length === 0 ? (
+          <View style={styles.empty}>
+            <MaterialIcons name="search-off" size={48} color="#DDD" />
+            <Text style={styles.emptyText}>Nenhum resultado para "{filtro}"</Text>
+          </View>
+        ) : (
+          filtered.map((c) => (
+            <TouchableOpacity key={c.id} style={styles.card}
+              onPress={() => router.push(`/?criancaId=${c.id}&criancaNome=${encodeURIComponent(c.nome)}`)} activeOpacity={0.7}>
+              {c.foto_url ? (
+                <Image source={{ uri: c.foto_url }} style={styles.avatarImg} />
+              ) : (
+                <View style={styles.avatar}><MaterialIcons name="child-care" size={32} color="#1E3A5F" /></View>
+              )}
+              <View style={styles.info}>
+                <Text style={styles.nome}>{c.nome}</Text>
+                {c.data_nascimento && <Text style={styles.idade}>{calcIdade(c.data_nascimento)}</Text>}
+              </View>
+              <MaterialIcons name="chevron-right" size={24} color="#CCC" />
+            </TouchableOpacity>
+          ))
+        )}
+      </ScrollView>
+    </View>
     </>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F5F7FA" },
-  content: { padding: 20, paddingBottom: 40 },
+  topSection: { padding: 20, paddingBottom: 0 },
+  content: { padding: 20, paddingTop: 12, paddingBottom: 40 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   hello: { fontSize: 22, fontWeight: "700", color: "#1E3A5F", marginBottom: 4 },
-  instrucao: { fontSize: 14, color: "#666", marginBottom: 24 },
+  instrucao: { fontSize: 14, color: "#666", marginBottom: 12 },
+  searchBar: { flexDirection: "row", alignItems: "center", backgroundColor: "#FFF", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 4, marginBottom: 4, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
+  searchInput: { flex: 1, paddingVertical: 10, paddingHorizontal: 8, fontSize: 15, color: "#333" },
   card: { backgroundColor: "#FFF", borderRadius: 14, padding: 18, marginBottom: 12, flexDirection: "row", alignItems: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
   avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: "#E8F0FE", justifyContent: "center", alignItems: "center", marginRight: 16 },
+  avatarImg: { width: 56, height: 56, borderRadius: 28, marginRight: 16 },
   info: { flex: 1 },
   nome: { fontSize: 17, fontWeight: "700", color: "#1E3A5F" },
   idade: { fontSize: 13, color: "#888", marginTop: 2 },

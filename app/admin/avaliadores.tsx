@@ -70,6 +70,7 @@ export default function AdminAvaliadoresScreen() {
       }
     } else {
       const { error } = await supabase.from("avaliadores").insert({
+        auth_id: null,
         nome: form.nome.trim(),
         email: form.email.trim(),
         perfil: form.perfil,
