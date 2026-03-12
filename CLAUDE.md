@@ -30,7 +30,7 @@ Authentication state is managed via a React Context (`AuthContext`) defined in `
 6. **`/historico/[contextId]`** — History of evaluations grouped by date
 
 ### Backend (Supabase)
-All data access goes through `data/supabase.ts` which exports a single `supabase` client. Supabase credentials are placeholder constants that must be replaced with real values. Key tables:
+All data access goes through `data/supabase.ts` which exports a single `supabase` client. Credentials are read from environment variables via `process.env.EXPO_PUBLIC_SUPABASE_URL` and `process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY` (defined in `.env`, see `.env.example`). Key tables:
 - `avaliadores` — evaluator profiles (linked to Supabase Auth via `auth_id`)
 - `criancas` — children being evaluated
 - `vinculos` — many-to-many relationship between evaluators and children
@@ -41,6 +41,20 @@ All data access goes through `data/supabase.ts` which exports a single `supabase
 - `v_resumo_contexto`, `v_ultima_avaliacao` — database views for aggregated data
 
 Session persistence uses `@react-native-async-storage/async-storage` on native platforms; on web, persistence is disabled.
+
+Row Level Security (RLS) is enabled on all tables. Evaluators can only access their own profile, linked children, and related evaluations. Contextos, categorias, and indicadores are readable by all authenticated users.
+
+### Database Setup
+- `supabase/migrations/001_initial_schema.sql` — Tables, views, indexes, and RLS policies
+- `supabase/seed.sql` — Sample data (3 children, 5 contexts, 10 categories, 30 indicators)
+- After signup, link an evaluator to children by inserting rows into the `vinculos` table
+
+### Environment Variables
+Copy `.env.example` to `.env` and fill in your Supabase credentials:
+- `EXPO_PUBLIC_SUPABASE_URL` — Supabase project URL
+- `EXPO_PUBLIC_SUPABASE_ANON_KEY` — Supabase anon/public key
+
+The Expo config is in `app.config.js` (not `app.json`) to support dynamic configuration.
 
 ### Styling
 Inline `StyleSheet.create()` in each screen file. Primary brand color is `#1E3A5F` (dark navy). Each context has its own `cor` and `cor_clara` colors stored in the database. Rating colors: green (4-5), amber (3), red (1-2).
