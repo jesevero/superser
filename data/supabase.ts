@@ -1,13 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 import { Platform } from "react-native";
+import Constants from "expo-constants";
 
-// =====================================================
-// CONFIGURAÇÃO — Troque pelos seus dados do Supabase
-// Vá em Settings → API Keys no painel do Supabase
-// =====================================================
-
-const SUPABASE_URL = "https://SEU_PROJETO.supabase.co";
-const SUPABASE_ANON_KEY = "SUA_PUBLISHABLE_KEY_AQUI";
+const SUPABASE_URL = Constants.expoConfig?.extra?.supabaseUrl ?? "";
+const SUPABASE_ANON_KEY = Constants.expoConfig?.extra?.supabaseAnonKey ?? "";
 
 let storage: any = undefined;
 
