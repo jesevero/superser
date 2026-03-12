@@ -1,9 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { Platform } from "react-native";
-import Constants from "expo-constants";
 
-const SUPABASE_URL = Constants.expoConfig?.extra?.supabaseUrl ?? "";
-const SUPABASE_ANON_KEY = Constants.expoConfig?.extra?.supabaseAnonKey ?? "";
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "";
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
 let storage: any = undefined;
 
