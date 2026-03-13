@@ -1,6 +1,7 @@
-import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity, Modal } from "react-native";
 import { useLocalSearchParams, Stack } from "expo-router";
 import { useEffect, useState } from "react";
+import { MaterialIcons } from "@expo/vector-icons";
 import Svg, { Text as SvgText, Line, G, Circle, Polyline, Defs, LinearGradient, Stop, Rect } from "react-native-svg";
 import { supabase } from "../../data/supabase";
 
@@ -117,6 +118,94 @@ const bStyles = StyleSheet.create({
   title: { fontSize: 15, fontWeight: "700", color: "#1E3A5F", marginBottom: 12 },
 });
 
+function AnaliseModal({ visible, onClose, analise, loading }: {
+  visible: boolean;
+  onClose: () => void;
+  analise: string;
+  loading: boolean;
+}) {
+  // Simple markdown-like rendering: **bold** and line breaks
+  function renderText(text: string) {
+    const lines = text.split("\n");
+    return lines.map((line, i) => {
+      const trimmed = line.trim();
+      if (!trimmed) return <View key={i} style={{ height: 8 }} />;
+
+      // Heading detection (lines starting with number + dot or ###)
+      const isHeading = /^(\d+\.\s+\*\*|###?\s)/.test(trimmed);
+
+      // Parse **bold** segments
+      const parts = trimmed.split(/(\*\*[^*]+\*\*)/g);
+      const elements = parts.map((part, j) => {
+        if (part.startsWith("**") && part.endsWith("**")) {
+          return <Text key={j} style={aStyles.bold}>{part.slice(2, -2)}</Text>;
+        }
+        return <Text key={j}>{part}</Text>;
+      });
+
+      return (
+        <Text key={i} style={[aStyles.paragraph, isHeading && aStyles.heading]}>
+          {elements}
+        </Text>
+      );
+    });
+  }
+
+  return (
+    <Modal visible={visible} transparent animationType="slide">
+      <View style={aStyles.overlay}>
+        <View style={aStyles.container}>
+          <View style={aStyles.header}>
+            <View style={aStyles.headerLeft}>
+              <MaterialIcons name="psychology" size={24} color="#1E3A5F" />
+              <Text style={aStyles.headerTitle}>Analise e Aconselhamento</Text>
+            </View>
+            <TouchableOpacity onPress={onClose} style={aStyles.closeBtn}>
+              <MaterialIcons name="close" size={24} color="#666" />
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={aStyles.body} contentContainerStyle={aStyles.bodyContent}>
+            {loading ? (
+              <View style={aStyles.loadingContainer}>
+                <ActivityIndicator size="large" color="#1E3A5F" />
+                <Text style={aStyles.loadingText}>Analisando dados...</Text>
+                <Text style={aStyles.loadingHint}>Gerando parecer personalizado com base nas avaliacoes</Text>
+              </View>
+            ) : (
+              renderText(analise)
+            )}
+          </ScrollView>
+          {!loading && (
+            <View style={aStyles.footer}>
+              <MaterialIcons name="info-outline" size={14} color="#BBB" />
+              <Text style={aStyles.footerText}>Analise gerada por IA. Consulte sempre um profissional.</Text>
+            </View>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const aStyles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
+  container: { backgroundColor: "#FFF", borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: "85%", minHeight: "50%" },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 20, borderBottomWidth: 1, borderBottomColor: "#F0F0F0" },
+  headerLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: "#1E3A5F" },
+  closeBtn: { padding: 4 },
+  body: { flex: 1 },
+  bodyContent: { padding: 20 },
+  loadingContainer: { alignItems: "center", paddingVertical: 60 },
+  loadingText: { fontSize: 16, fontWeight: "600", color: "#1E3A5F", marginTop: 16 },
+  loadingHint: { fontSize: 13, color: "#999", marginTop: 8, textAlign: "center" },
+  paragraph: { fontSize: 14, color: "#444", lineHeight: 22, marginBottom: 2 },
+  heading: { fontSize: 15, fontWeight: "700", color: "#1E3A5F", marginTop: 12, marginBottom: 4 },
+  bold: { fontWeight: "700", color: "#1E3A5F" },
+  footer: { flexDirection: "row", alignItems: "center", gap: 6, padding: 16, borderTopWidth: 1, borderTopColor: "#F0F0F0" },
+  footerText: { fontSize: 11, color: "#BBB", flex: 1 },
+});
+
 export default function HistoricoScreen() {
   const { contextId, criancaId, criancaNome } = useLocalSearchParams<{
     contextId: string; criancaId: string; criancaNome: string;
@@ -125,6 +214,9 @@ export default function HistoricoScreen() {
   const [contexto, setContexto] = useState<any>(null);
   const [avaliacoes, setAvaliacoes] = useState<AvaliacaoHist[]>([]);
   const [loading, setLoading] = useState(true);
+  const [analiseVisible, setAnaliseVisible] = useState(false);
+  const [analiseText, setAnaliseText] = useState("");
+  const [analiseLoading, setAnaliseLoading] = useState(false);
 
   useEffect(() => {
     if (contextId && criancaId) loadData();
@@ -151,6 +243,52 @@ export default function HistoricoScreen() {
     }));
     setAvaliacoes(mapped);
     setLoading(false);
+  }
+
+  async function requestAnalise() {
+    setAnaliseVisible(true);
+    setAnaliseLoading(true);
+    setAnaliseText("");
+
+    try {
+      // Build session data for the API
+      const sessionsMap = new Map<string, AvaliacaoHist[]>();
+      avaliacoes.forEach((a) => {
+        const minuteKey = a.created_at.slice(0, 16) + "|" + a.avaliador_nome;
+        const list = sessionsMap.get(minuteKey) || [];
+        list.push(a);
+        sessionsMap.set(minuteKey, list);
+      });
+
+      const sessionsPayload = Array.from(sessionsMap.entries()).map(([_, ratings]) => ({
+        date: ratings[0].data,
+        avaliador: ratings[0].avaliador_nome,
+        avg: ratings.reduce((s, r) => s + r.valor, 0) / ratings.length,
+        ratings: ratings.map((r) => ({
+          indicador: r.indicador_nome,
+          valor: r.valor,
+        })),
+      }));
+
+      const { data, error } = await supabase.functions.invoke("analise", {
+        body: {
+          criancaNome: decodeURIComponent(criancaNome || ""),
+          contextoTitulo: contexto.titulo,
+          avaliacoes: sessionsPayload,
+        },
+      });
+
+      if (error) {
+        setAnaliseText("Erro ao gerar analise. Verifique se a funcao esta configurada corretamente e tente novamente.");
+      } else if (data?.error) {
+        setAnaliseText(data.error);
+      } else {
+        setAnaliseText(data?.analise || "Nao foi possivel gerar a analise.");
+      }
+    } catch (e: any) {
+      setAnaliseText("Erro de conexao. Verifique sua internet e tente novamente.");
+    }
+    setAnaliseLoading(false);
   }
 
   if (loading || !contexto) {
@@ -188,9 +326,17 @@ export default function HistoricoScreen() {
         <Text style={styles.childName}>{decodeURIComponent(criancaNome || "")}</Text>
         <Text style={styles.totalText}>{avaliacoes.length} avaliacoes em {sessionKeys.length} sessoes</Text>
 
-        {/* Bar Chart */}
+        {/* Line Chart */}
         {sessionSummaries.length > 0 && (
           <LineChart sessions={sessionSummaries} color={contexto.cor || "#1E3A5F"} />
+        )}
+
+        {/* Analise Button */}
+        {sessionKeys.length > 0 && (
+          <TouchableOpacity style={[styles.analiseBtn, { borderColor: contexto.cor || "#1E3A5F" }]} onPress={requestAnalise}>
+            <MaterialIcons name="psychology" size={22} color={contexto.cor || "#1E3A5F"} />
+            <Text style={[styles.analiseBtnText, { color: contexto.cor || "#1E3A5F" }]}>Analise e Aconselhamento</Text>
+          </TouchableOpacity>
         )}
 
         {sessionKeys.length === 0 ? (
@@ -235,6 +381,13 @@ export default function HistoricoScreen() {
           })
         )}
       </ScrollView>
+
+      <AnaliseModal
+        visible={analiseVisible}
+        onClose={() => setAnaliseVisible(false)}
+        analise={analiseText}
+        loading={analiseLoading}
+      />
     </>
   );
 }
@@ -245,6 +398,8 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   childName: { fontSize: 18, fontWeight: "700", color: "#1E3A5F", marginBottom: 4 },
   totalText: { fontSize: 13, color: "#888", marginBottom: 16 },
+  analiseBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 16, borderRadius: 12, borderWidth: 2, gap: 10, marginBottom: 16, backgroundColor: "#FFF", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
+  analiseBtnText: { fontSize: 16, fontWeight: "700" },
   empty: { alignItems: "center", paddingVertical: 60 },
   emptyText: { fontSize: 16, color: "#666", fontWeight: "600" },
   emptyHint: { fontSize: 13, color: "#999", marginTop: 8, textAlign: "center" },

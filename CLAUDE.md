@@ -26,8 +26,8 @@ Authentication state is managed via a React Context (`AuthContext`) defined in `
 2. **`/criancas`** — Select a child (criança) linked to the current evaluator via `vinculos` table
 3. **`/` (index)** — Dashboard showing all developmental contexts with summary scores for the selected child
 4. **`/context/[id]`** — Detail view of a context showing categories and indicators with latest ratings
-5. **`/avaliar/[contextId]/[categoryIndex]`** — Modal screen to rate indicators (1-5 scale) for a category; upserts to `avaliacoes` table
-6. **`/historico/[contextId]`** — History of evaluations grouped by date
+5. **`/avaliar/[contextId]/[categoryIndex]`** — Modal screen to rate indicators (1-5 scale) for a category; inserts to `avaliacoes` table (all evaluations are kept, not overwritten)
+6. **`/historico/[contextId]`** — History of evaluations grouped by session (same `created_at` minute + avaliador), with a line chart of the last 12 session averages
 
 ### Backend (Supabase)
 All data access goes through `data/supabase.ts` which exports a single `supabase` client. Credentials are read from environment variables via `process.env.EXPO_PUBLIC_SUPABASE_URL` and `process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY` (defined in `.env`, see `.env.example`). Key tables:
@@ -37,17 +37,30 @@ All data access goes through `data/supabase.ts` which exports a single `supabase
 - `contextos` — developmental contexts (e.g., family, school)
 - `categorias` — categories within a context
 - `indicadores` — behavioral indicators within a category
-- `avaliacoes` — actual evaluation ratings (upsert key: `crianca_id, avaliador_id, indicador_id, data`)
+- `avaliacoes` — actual evaluation ratings (no unique constraint; all evaluations are stored with `created_at` timestamps)
 - `v_resumo_contexto`, `v_ultima_avaliacao` — database views for aggregated data
 
 Session persistence uses `@react-native-async-storage/async-storage` on native platforms; on web, persistence is disabled.
 
 Row Level Security (RLS) is enabled on all tables. Evaluators can only access their own profile, linked children, and related evaluations. Contextos, categorias, and indicadores are readable by all authenticated users.
 
+### Admin Screens
+Under `app/admin/`: CRUD for avaliadores, criancas (with photo upload), contextos (with image upload), vinculos, categorias, indicadores. Only accessible to users with `perfil: "admin"`.
+
+### Custom Components
+- `components/RadarChart.tsx` — SVG spider/radar chart for context score overview on dashboard
+- `components/ImageUpload.tsx` — Image upload to Supabase Storage (web uses hidden `<input type="file">`)
+- Charts in history screen use `react-native-svg` directly (must use SVG elements like `G`, `Circle`, `Polyline` — never `View` inside `Svg`)
+
 ### Database Setup
 - `supabase/migrations/001_initial_schema.sql` — Tables, views, indexes, and RLS policies
+- `supabase/migrations/002_admin_policies.sql` — Admin RLS policies
+- `supabase/migrations/003_avaliadores_nullable_auth.sql` — Makes `auth_id` nullable for admin-created avaliadores
+- `supabase/migrations/004_avaliacoes_keep_all.sql` — Drops unique constraints, adds `created_at` index
+- `supabase/migrations/005_images.sql` — Adds `foto_url` to criancas, `imagem_url` to contextos
 - `supabase/seed.sql` — Sample data (3 children, 5 contexts, 10 categories, 30 indicators)
 - After signup, link an evaluator to children by inserting rows into the `vinculos` table
+- Supabase Storage bucket `images` (public) used for child photos and context images
 
 ### Environment Variables
 Copy `.env.example` to `.env` and fill in your Supabase credentials:
@@ -66,3 +79,8 @@ Inline `StyleSheet.create()` in each screen file. Primary brand color is `#1E3A5
 - Icons use `@expo/vector-icons` (MaterialIcons)
 - App logo is at `assets/logo.png`, rendered via `app/Logo.tsx`
 - Child/context IDs and names are passed between screens as URL query parameters
+
+### Deployment
+- Web export: `npx expo export --platform web` → outputs to `dist/`
+- Netlify: `npx netlify-cli deploy --dir=dist --prod` (site: superser-app.netlify.app)
+- GitHub: https://github.com/jesevero/superser
