@@ -1,8 +1,8 @@
-import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity, Modal } from "react-native";
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity, Modal, Linking } from "react-native";
 import { useLocalSearchParams, Stack } from "expo-router";
 import { useEffect, useState } from "react";
 import { MaterialIcons } from "@expo/vector-icons";
-import Svg, { Text as SvgText, Line, G, Circle, Polyline, Defs, LinearGradient, Stop, Rect } from "react-native-svg";
+import Svg, { Text as SvgText, Line, G, Circle, Polyline, Defs, LinearGradient, Stop } from "react-native-svg";
 import { supabase } from "../../data/supabase";
 
 type AvaliacaoHist = {
@@ -58,7 +58,6 @@ function LineChart({ sessions, color }: { sessions: SessionSummary[]; color: str
 
   const polylinePoints = points.map((p) => `${p.x},${p.y}`).join(" ");
 
-  // Area fill polygon (line + bottom)
   const areaPoints = [
     `${points[0].x},${padT + areaH}`,
     ...points.map((p) => `${p.x},${p.y}`),
@@ -76,8 +75,6 @@ function LineChart({ sessions, color }: { sessions: SessionSummary[]; color: str
               <Stop offset="1" stopColor={color} stopOpacity="0.02" />
             </LinearGradient>
           </Defs>
-
-          {/* Grid lines */}
           {[1, 2, 3, 4, 5].map((v) => {
             const y = padT + areaH - (v / maxVal) * areaH;
             return (
@@ -88,14 +85,8 @@ function LineChart({ sessions, color }: { sessions: SessionSummary[]; color: str
             );
           })}
           <Line x1={padL} y1={padT + areaH} x2={chartW - padR} y2={padT + areaH} stroke="#E0E0E0" strokeWidth={1} />
-
-          {/* Area fill */}
           <Polyline points={areaPoints} fill="url(#areaGrad)" stroke="none" />
-
-          {/* Line */}
           <Polyline points={polylinePoints} fill="none" stroke={color} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
-
-          {/* Points + labels */}
           {points.map((p, i) => (
             <G key={`p-${i}`}>
               <Circle cx={p.x} cy={p.y} r={5} fill={pointColor(p.avg)} stroke="#FFF" strokeWidth={2} />
@@ -118,23 +109,28 @@ const bStyles = StyleSheet.create({
   title: { fontSize: 15, fontWeight: "700", color: "#1E3A5F", marginBottom: 12 },
 });
 
-function AnaliseModal({ visible, onClose, analise, loading }: {
+function stripMarkdown(text: string): string {
+  return text.replace(/\*\*/g, "").replace(/###?\s?/g, "").replace(/^- /gm, "• ");
+}
+
+function AnaliseModal({ visible, onClose, analise, loading, whatsapp, email, criancaNome, contextoTitulo }: {
   visible: boolean;
   onClose: () => void;
   analise: string;
   loading: boolean;
+  whatsapp: string | null;
+  email: string | null;
+  criancaNome: string;
+  contextoTitulo: string;
 }) {
-  // Simple markdown-like rendering: **bold** and line breaks
+  const [sent, setSent] = useState<string | null>(null);
+
   function renderText(text: string) {
     const lines = text.split("\n");
     return lines.map((line, i) => {
       const trimmed = line.trim();
       if (!trimmed) return <View key={i} style={{ height: 8 }} />;
-
-      // Heading detection (lines starting with number + dot or ###)
       const isHeading = /^(\d+\.\s+\*\*|###?\s)/.test(trimmed);
-
-      // Parse **bold** segments
       const parts = trimmed.split(/(\*\*[^*]+\*\*)/g);
       const elements = parts.map((part, j) => {
         if (part.startsWith("**") && part.endsWith("**")) {
@@ -142,13 +138,35 @@ function AnaliseModal({ visible, onClose, analise, loading }: {
         }
         return <Text key={j}>{part}</Text>;
       });
-
       return (
         <Text key={i} style={[aStyles.paragraph, isHeading && aStyles.heading]}>
           {elements}
         </Text>
       );
     });
+  }
+
+  function sendWhatsApp() {
+    if (!whatsapp) return;
+    const plain = stripMarkdown(analise);
+    const header = `*SuperSer — Análise e Sugestões IA*\n_${criancaNome} • ${contextoTitulo}_\n\n`;
+    const text = encodeURIComponent(header + plain);
+    const number = whatsapp.replace(/\D/g, "");
+    const url = `https://wa.me/55${number}?text=${text}`;
+    Linking.openURL(url);
+    setSent("whatsapp");
+    setTimeout(() => setSent(null), 3000);
+  }
+
+  function sendEmail() {
+    if (!email) return;
+    const plain = stripMarkdown(analise);
+    const subject = encodeURIComponent(`SuperSer — Análise: ${criancaNome} • ${contextoTitulo}`);
+    const body = encodeURIComponent(plain);
+    const url = `mailto:${email}?subject=${subject}&body=${body}`;
+    Linking.openURL(url);
+    setSent("email");
+    setTimeout(() => setSent(null), 3000);
   }
 
   return (
@@ -158,7 +176,7 @@ function AnaliseModal({ visible, onClose, analise, loading }: {
           <View style={aStyles.header}>
             <View style={aStyles.headerLeft}>
               <MaterialIcons name="psychology" size={24} color="#1E3A5F" />
-              <Text style={aStyles.headerTitle}>Análise e Aconselhamento</Text>
+              <Text style={aStyles.headerTitle}>Análise e Sugestões IA</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={aStyles.closeBtn}>
               <MaterialIcons name="close" size={24} color="#666" />
@@ -172,7 +190,36 @@ function AnaliseModal({ visible, onClose, analise, loading }: {
                 <Text style={aStyles.loadingHint}>Gerando parecer personalizado com base nas avaliações</Text>
               </View>
             ) : (
-              renderText(analise)
+              <>
+                {renderText(analise)}
+
+                {/* Share buttons */}
+                <View style={aStyles.shareSection}>
+                  <Text style={aStyles.shareTitle}>Enviar para o responsável</Text>
+                  <View style={aStyles.shareRow}>
+                    <TouchableOpacity
+                      style={[aStyles.shareBtn, aStyles.whatsappBtn, !whatsapp && aStyles.shareBtnDisabled]}
+                      onPress={sendWhatsApp}
+                      disabled={!whatsapp}
+                    >
+                      <MaterialIcons name="phone" size={20} color="#FFF" />
+                      <Text style={aStyles.shareBtnText}>
+                        {sent === "whatsapp" ? "Abrindo..." : whatsapp ? "Enviar por WhatsApp" : "WhatsApp não cadastrado"}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[aStyles.shareBtn, aStyles.emailBtn, !email && aStyles.shareBtnDisabled]}
+                      onPress={sendEmail}
+                      disabled={!email}
+                    >
+                      <MaterialIcons name="email" size={20} color="#FFF" />
+                      <Text style={aStyles.shareBtnText}>
+                        {sent === "email" ? "Abrindo..." : email ? "Enviar por E-mail" : "E-mail não cadastrado"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </>
             )}
           </ScrollView>
           {!loading && (
@@ -202,6 +249,14 @@ const aStyles = StyleSheet.create({
   paragraph: { fontSize: 14, color: "#444", lineHeight: 22, marginBottom: 2 },
   heading: { fontSize: 15, fontWeight: "700", color: "#1E3A5F", marginTop: 12, marginBottom: 4 },
   bold: { fontWeight: "700", color: "#1E3A5F" },
+  shareSection: { marginTop: 24, paddingTop: 20, borderTopWidth: 1, borderTopColor: "#F0F0F0" },
+  shareTitle: { fontSize: 14, fontWeight: "700", color: "#1E3A5F", marginBottom: 12 },
+  shareRow: { gap: 10 },
+  shareBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 14, borderRadius: 12, gap: 10 },
+  shareBtnDisabled: { opacity: 0.4 },
+  whatsappBtn: { backgroundColor: "#25D366" },
+  emailBtn: { backgroundColor: "#1E3A5F" },
+  shareBtnText: { color: "#FFF", fontSize: 15, fontWeight: "700" },
   footer: { flexDirection: "row", alignItems: "center", gap: 6, padding: 16, borderTopWidth: 1, borderTopColor: "#F0F0F0" },
   footerText: { fontSize: 11, color: "#BBB", flex: 1 },
 });
@@ -217,6 +272,8 @@ export default function HistoricoScreen() {
   const [analiseVisible, setAnaliseVisible] = useState(false);
   const [analiseText, setAnaliseText] = useState("");
   const [analiseLoading, setAnaliseLoading] = useState(false);
+  const [criancaWhatsapp, setCriancaWhatsapp] = useState<string | null>(null);
+  const [criancaEmail, setCriancaEmail] = useState<string | null>(null);
 
   useEffect(() => {
     if (contextId && criancaId) loadData();
@@ -225,6 +282,11 @@ export default function HistoricoScreen() {
   async function loadData() {
     const { data: ctx } = await supabase.from("contextos").select("*").eq("id", contextId).single();
     setContexto(ctx);
+
+    // Load child contact info
+    const { data: childData } = await supabase.from("criancas").select("whatsapp, email_responsavel").eq("id", criancaId).maybeSingle();
+    setCriancaWhatsapp(childData?.whatsapp || null);
+    setCriancaEmail(childData?.email_responsavel || null);
 
     const { data } = await supabase
       .from("avaliacoes")
@@ -251,7 +313,6 @@ export default function HistoricoScreen() {
     setAnaliseText("");
 
     try {
-      // Build session data for the API
       const sessionsMap = new Map<string, AvaliacaoHist[]>();
       avaliacoes.forEach((a) => {
         const minuteKey = a.created_at.slice(0, 16) + "|" + a.avaliador_nome;
@@ -274,6 +335,7 @@ export default function HistoricoScreen() {
         body: {
           criancaNome: decodeURIComponent(criancaNome || ""),
           contextoTitulo: contexto.titulo,
+          contextoPrompt: contexto.prompt || null,
           avaliacoes: sessionsPayload,
         },
       });
@@ -295,7 +357,6 @@ export default function HistoricoScreen() {
     return <View style={styles.center}><ActivityIndicator size="large" color="#1E3A5F" /></View>;
   }
 
-  // Group by session (same created_at minute + same avaliador = same session)
   const sessions = new Map<string, AvaliacaoHist[]>();
   avaliacoes.forEach((a) => {
     const minuteKey = a.created_at.slice(0, 16) + "|" + a.avaliador_nome;
@@ -305,7 +366,6 @@ export default function HistoricoScreen() {
   });
   const sessionKeys = Array.from(sessions.keys());
 
-  // Build session summaries for chart
   const sessionSummaries: SessionSummary[] = sessionKeys.map((key) => {
     const ratings = sessions.get(key) || [];
     const avg = ratings.reduce((s, r) => s + r.valor, 0) / ratings.length;
@@ -319,23 +379,23 @@ export default function HistoricoScreen() {
     }) + " as " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   }
 
+  const decodedName = decodeURIComponent(criancaNome || "");
+
   return (
     <>
       <Stack.Screen options={{ title: `Histórico — ${contexto.titulo}` }} />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <Text style={styles.childName}>{decodeURIComponent(criancaNome || "")}</Text>
+        <Text style={styles.childName}>{decodedName}</Text>
         <Text style={styles.totalText}>{avaliacoes.length} avaliações em {sessionKeys.length} sessões</Text>
 
-        {/* Line Chart */}
         {sessionSummaries.length > 0 && (
           <LineChart sessions={sessionSummaries} color={contexto.cor || "#1E3A5F"} />
         )}
 
-        {/* Analise Button */}
         {sessionKeys.length > 0 && (
           <TouchableOpacity style={[styles.analiseBtn, { borderColor: contexto.cor || "#1E3A5F" }]} onPress={requestAnalise}>
             <MaterialIcons name="psychology" size={22} color={contexto.cor || "#1E3A5F"} />
-            <Text style={[styles.analiseBtnText, { color: contexto.cor || "#1E3A5F" }]}>Análise e Aconselhamento</Text>
+            <Text style={[styles.analiseBtnText, { color: contexto.cor || "#1E3A5F" }]}>Análise e Sugestões IA</Text>
           </TouchableOpacity>
         )}
 
@@ -387,6 +447,10 @@ export default function HistoricoScreen() {
         onClose={() => setAnaliseVisible(false)}
         analise={analiseText}
         loading={analiseLoading}
+        whatsapp={criancaWhatsapp}
+        email={criancaEmail}
+        criancaNome={decodedName}
+        contextoTitulo={contexto.titulo}
       />
     </>
   );

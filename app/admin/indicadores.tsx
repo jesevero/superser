@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert, ActivityIndicator, Modal } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, ActivityIndicator, Modal } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
@@ -24,6 +24,8 @@ export default function AdminIndicadoresScreen() {
   const [nome, setNome] = useState("");
   const [ordem, setOrdem] = useState("");
   const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   useEffect(() => {
     if (auth.perfil !== "admin") { router.replace("/criancas"); return; }
@@ -40,6 +42,7 @@ export default function AdminIndicadoresScreen() {
     setEditingId(null);
     setNome("");
     setOrdem("");
+    setMessage(null);
     setModalVisible(true);
   }
 
@@ -47,24 +50,26 @@ export default function AdminIndicadoresScreen() {
     setEditingId(ind.id);
     setNome(ind.nome);
     setOrdem(ind.ordem != null ? String(ind.ordem) : "");
+    setMessage(null);
     setModalVisible(true);
   }
 
   async function handleSave() {
-    if (!nome.trim()) { Alert.alert("Atenção", "Informe o nome."); return; }
+    if (!nome.trim()) { setMessage({ text: "Informe o nome.", error: true }); return; }
     setSaving(true);
+    setMessage(null);
 
     const row: any = { nome: nome.trim() };
     row.ordem = ordem.trim() ? Number(ordem.trim()) : null;
 
     if (editingId) {
       const { error } = await supabase.from("indicadores").update(row).eq("id", editingId);
-      if (error) { Alert.alert("Erro", error.message); setSaving(false); return; }
+      if (error) { setMessage({ text: `Erro: ${error.message}`, error: true }); setSaving(false); return; }
     } else {
       row.contexto_id = contextoId;
       row.categoria_id = categoriaId;
       const { error } = await supabase.from("indicadores").insert(row);
-      if (error) { Alert.alert("Erro", error.message); setSaving(false); return; }
+      if (error) { setMessage({ text: `Erro: ${error.message}`, error: true }); setSaving(false); return; }
     }
 
     setSaving(false);
@@ -72,15 +77,11 @@ export default function AdminIndicadoresScreen() {
     loadData();
   }
 
-  function handleDelete(ind: Indicador) {
-    Alert.alert("Confirmar", `Excluir "${ind.nome}"?`, [
-      { text: "Cancelar" },
-      { text: "Excluir", style: "destructive", onPress: async () => {
-        const { error } = await supabase.from("indicadores").delete().eq("id", ind.id);
-        if (error) Alert.alert("Erro", error.message);
-        else loadData();
-      }},
-    ]);
+  async function handleDelete(id: string) {
+    const { error } = await supabase.from("indicadores").delete().eq("id", id);
+    setConfirmDelete(null);
+    if (error) setMessage({ text: `Erro: ${error.message}`, error: true });
+    else loadData();
   }
 
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#1E3A5F" /></View>;
@@ -106,11 +107,28 @@ export default function AdminIndicadoresScreen() {
             <TouchableOpacity onPress={() => openEdit(ind)} style={styles.iconBtn}>
               <MaterialIcons name="edit" size={20} color="#1E3A5F" />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleDelete(ind)} style={styles.iconBtn}>
-              <MaterialIcons name="delete" size={20} color="#CC0000" />
-            </TouchableOpacity>
+            {confirmDelete === ind.id ? (
+              <View style={styles.confirmRow}>
+                <TouchableOpacity onPress={() => handleDelete(ind.id)} style={styles.confirmYes}>
+                  <MaterialIcons name="check" size={18} color="#FFF" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setConfirmDelete(null)} style={styles.confirmNo}>
+                  <MaterialIcons name="close" size={18} color="#666" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity onPress={() => setConfirmDelete(ind.id)} style={styles.iconBtn}>
+                <MaterialIcons name="delete" size={20} color="#CC0000" />
+              </TouchableOpacity>
+            )}
           </View>
         ))}
+
+        {message && !modalVisible && (
+          <View style={[styles.msgBar, message.error ? styles.msgError : styles.msgSuccess]}>
+            <Text style={styles.msgText}>{message.text}</Text>
+          </View>
+        )}
       </ScrollView>
 
       <Modal visible={modalVisible} transparent animationType="slide">
@@ -119,6 +137,13 @@ export default function AdminIndicadoresScreen() {
             <Text style={styles.modalTitle}>{editingId ? "Editar Indicador" : "Novo Indicador"}</Text>
             <TextInput style={styles.input} placeholder="Nome" value={nome} onChangeText={setNome} autoCapitalize="sentences" />
             <TextInput style={styles.input} placeholder="Ordem (número)" value={ordem} onChangeText={setOrdem} keyboardType="numeric" />
+
+            {message && (
+              <View style={[styles.msgBar, message.error ? styles.msgError : styles.msgSuccess]}>
+                <Text style={styles.msgText}>{message.text}</Text>
+              </View>
+            )}
+
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setModalVisible(false)}>
                 <Text style={styles.cancelBtnText}>Cancelar</Text>
@@ -148,6 +173,9 @@ const styles = StyleSheet.create({
   cardName: { fontSize: 16, fontWeight: "600", color: "#1E3A5F" },
   cardDate: { fontSize: 13, color: "#888", marginTop: 2 },
   iconBtn: { padding: 8, marginLeft: 4 },
+  confirmRow: { flexDirection: "row", gap: 6 },
+  confirmYes: { backgroundColor: "#CC0000", borderRadius: 14, width: 28, height: 28, justifyContent: "center", alignItems: "center" },
+  confirmNo: { backgroundColor: "#EEE", borderRadius: 14, width: 28, height: 28, justifyContent: "center", alignItems: "center" },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", padding: 24 },
   modalContent: { backgroundColor: "#FFF", borderRadius: 16, padding: 24 },
   modalTitle: { fontSize: 20, fontWeight: "700", color: "#1E3A5F", marginBottom: 20 },
@@ -157,4 +185,8 @@ const styles = StyleSheet.create({
   cancelBtnText: { color: "#666", fontWeight: "600" },
   saveBtn: { backgroundColor: "#1E3A5F", paddingHorizontal: 20, paddingVertical: 12, borderRadius: 8 },
   saveBtnText: { color: "#FFF", fontWeight: "600" },
+  msgBar: { padding: 12, borderRadius: 8, marginTop: 8 },
+  msgError: { backgroundColor: "#FFEBEE" },
+  msgSuccess: { backgroundColor: "#E8F5E9" },
+  msgText: { fontSize: 14, fontWeight: "600", textAlign: "center", color: "#333" },
 });

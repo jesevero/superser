@@ -15,7 +15,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { criancaNome, contextoTitulo, avaliacoes } = await req.json();
+    const { criancaNome, contextoTitulo, contextoPrompt, avaliacoes } = await req.json();
 
     if (!avaliacoes || avaliacoes.length === 0) {
       return new Response(
@@ -34,7 +34,11 @@ Deno.serve(async (req) => {
       return `Sessão ${date} (por ${avaliador}), média ${session.avg.toFixed(1)}:\n${ratings}`;
     }).join("\n\n");
 
-    const prompt = `Você é um conselheiro especialista em desenvolvimento infantil. Analise os dados de avaliação abaixo para a criança "${criancaNome}" no contexto "${contextoTitulo}".
+    const customBlock = contextoPrompt
+      ? `\n\n⚠️ INSTRUÇÕES OBRIGATÓRIAS DO CONTEXTO "${contextoTitulo}" — SIGA RIGOROSAMENTE:\n${contextoPrompt}\n\nATENÇÃO: As instruções acima são obrigatórias e devem orientar toda a sua análise, tom, foco e sugestões. Adapte sua resposta completamente a estas instruções.`
+      : "";
+
+    const prompt = `Você é um conselheiro especialista em desenvolvimento infantil. Analise os dados de avaliação abaixo para a criança "${criancaNome}" no contexto "${contextoTitulo}".${customBlock}
 
 Os indicadores são avaliados em uma escala de 1 a 5:
 1 = Muito Baixo, 2 = Baixo, 3 = Regular, 4 = Bom, 5 = Excelente
@@ -43,13 +47,7 @@ Dados das avaliações (da mais recente para a mais antiga):
 
 ${sessionsText}
 
-Com base nesses dados, forneça:
 
-1. **Resumo Geral**: Uma visão geral do desenvolvimento da criança neste contexto.
-2. **Pontos Fortes**: Indicadores com bom desempenho ou melhoria consistente.
-3. **Pontos de Atenção**: Indicadores com baixo desempenho ou tendência de queda.
-4. **Evolução**: Análise da tendência geral (melhora, estabilidade ou regressão).
-5. **Sugestões Práticas**: 3-5 recomendações concretas e aplicáveis para os responsáveis.
 
 Responda em português brasileiro, de forma acolhedora e construtiva. Evite jargão técnico excessivo. Seja específico nos dados ao mencionar indicadores.`;
 

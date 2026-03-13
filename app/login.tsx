@@ -1,7 +1,7 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, Platform, ImageBackground } from "react-native";
-import { useState } from "react";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useState } from "react";
+import { Alert, ImageBackground, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { supabase } from "../data/supabase";
 import { useAuth } from "./_layout";
 import Logo from "./Logo";
@@ -145,7 +145,7 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-      <ImageBackground source={require("../assets/banner.png")} style={styles.header} resizeMode="cover">
+      <ImageBackground source={require("../assets/banner.jpg")} style={styles.header} resizeMode="cover">
         <View style={styles.headerOverlay}>
           <Logo size={80} />
           <Text style={styles.title}>SuperSer</Text>
@@ -187,7 +187,7 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#1E3A5F" },
-  header: { flex: 1 },
+  header: { flex: 1, width: "100%" },
   headerOverlay: { flex: 1, justifyContent: "center", alignItems: "center", paddingTop: 60, backgroundColor: "rgba(30, 58, 95, 0.7)" },
   title: { fontSize: 32, fontWeight: "800", color: "#FFF", marginTop: 16 },
   subtitle: { fontSize: 14, color: "#AAC4E0", textAlign: "center", marginTop: 6, lineHeight: 20 },

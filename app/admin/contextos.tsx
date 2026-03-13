@@ -15,6 +15,7 @@ type Contexto = {
   cor_clara: string | null;
   ordem: number | null;
   imagem_url: string | null;
+  prompt: string | null;
 };
 
 export default function AdminContextosScreen() {
@@ -31,6 +32,7 @@ export default function AdminContextosScreen() {
   const [corClara, setCorClara] = useState("");
   const [ordem, setOrdem] = useState("");
   const [imagemUrl, setImagemUrl] = useState<string | null>(null);
+  const [prompt, setPrompt] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
 
@@ -54,6 +56,7 @@ export default function AdminContextosScreen() {
     setCorClara("");
     setOrdem("");
     setImagemUrl(null);
+    setPrompt("");
     setMessage(null);
     setModalVisible(true);
   }
@@ -67,6 +70,7 @@ export default function AdminContextosScreen() {
     setCorClara(ctx.cor_clara || "");
     setOrdem(ctx.ordem != null ? String(ctx.ordem) : "");
     setImagemUrl(ctx.imagem_url);
+    setPrompt(ctx.prompt || "");
     setMessage(null);
     setModalVisible(true);
   }
@@ -82,6 +86,7 @@ export default function AdminContextosScreen() {
     row.cor = cor.trim() || null;
     row.cor_clara = corClara.trim() || null;
     row.ordem = ordem.trim() ? Number(ordem.trim()) : null;
+    row.prompt = prompt.trim() || null;
 
     if (editingId) {
       const { error } = await supabase.from("contextos").update(row).eq("id", editingId);
@@ -173,6 +178,17 @@ export default function AdminContextosScreen() {
               <TextInput style={styles.input} placeholder="Cor clara (hex, ex: #E8F0FE)" value={corClara} onChangeText={setCorClara} autoCapitalize="none" />
               <TextInput style={styles.input} placeholder="Ordem (numero)" value={ordem} onChangeText={setOrdem} keyboardType="numeric" />
 
+              <Text style={styles.promptLabel}>Prompt da IA (Análise e Aconselhamento)</Text>
+              <TextInput
+                style={[styles.input, styles.promptInput]}
+                placeholder="Instruções personalizadas para a IA ao analisar este contexto. Ex: Foque em aspectos de socialização e autonomia..."
+                value={prompt}
+                onChangeText={setPrompt}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+
               {message && (
                 <View style={[styles.msgBar, message.error ? styles.msgError : styles.msgSuccess]}>
                   <Text style={styles.msgText}>{message.text}</Text>
@@ -217,6 +233,8 @@ const styles = StyleSheet.create({
   modalContent: { backgroundColor: "#FFF", borderRadius: 16, padding: 24 },
   modalTitle: { fontSize: 20, fontWeight: "700", color: "#1E3A5F", marginBottom: 20 },
   input: { backgroundColor: "#F5F7FA", borderRadius: 12, padding: 14, fontSize: 16, color: "#333", marginBottom: 12 },
+  promptLabel: { fontSize: 13, fontWeight: "600", color: "#666", marginBottom: 6 },
+  promptInput: { minHeight: 100, paddingTop: 14 },
   modalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 12, marginTop: 8 },
   cancelBtn: { padding: 12, borderRadius: 8 },
   cancelBtnText: { color: "#666", fontWeight: "600" },
