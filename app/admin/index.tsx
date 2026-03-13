@@ -40,16 +40,16 @@ export default function AdminScreen() {
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#1E3A5F" /></View>;
 
   const cards = [
-    { title: "Criancas", subtitle: `${counts.criancas} cadastradas`, icon: "child-care" as const, route: "/admin/criancas" },
+    { title: "Crianças", subtitle: `${counts.criancas} cadastradas`, icon: "child-care" as const, route: "/admin/criancas" },
     { title: "Avaliadores", subtitle: `${counts.avaliadores} cadastrados`, icon: "people" as const, route: "/admin/avaliadores" },
-    { title: "Vinculos", subtitle: `${counts.vinculos} ativos`, icon: "link" as const, route: "/admin/vinculos" },
+    { title: "Vínculos", subtitle: `${counts.vinculos} ativos`, icon: "link" as const, route: "/admin/vinculos" },
     { title: "Contextos", subtitle: `${counts.contextos} contextos`, icon: "category" as const, route: "/admin/contextos" },
   ];
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.hello}>Painel Administrativo</Text>
-      <Text style={styles.subtitle}>Gerencie criancas, avaliadores, vinculos e contextos.</Text>
+      <Text style={styles.subtitle}>Gerencie crianças, avaliadores, vínculos e contextos.</Text>
 
       {cards.map((card) => (
         <TouchableOpacity key={card.route} style={styles.card} onPress={() => router.push(card.route as any)} activeOpacity={0.7}>

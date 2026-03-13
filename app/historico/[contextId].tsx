@@ -67,7 +67,7 @@ function LineChart({ sessions, color }: { sessions: SessionSummary[]; color: str
 
   return (
     <View style={bStyles.card}>
-      <Text style={bStyles.title}>Evolucao — Ultimas {last12.length} sessoes</Text>
+      <Text style={bStyles.title}>Evolução — Últimas {last12.length} sessões</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <Svg width={chartW} height={chartH}>
           <Defs>
@@ -158,7 +158,7 @@ function AnaliseModal({ visible, onClose, analise, loading }: {
           <View style={aStyles.header}>
             <View style={aStyles.headerLeft}>
               <MaterialIcons name="psychology" size={24} color="#1E3A5F" />
-              <Text style={aStyles.headerTitle}>Analise e Aconselhamento</Text>
+              <Text style={aStyles.headerTitle}>Análise e Aconselhamento</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={aStyles.closeBtn}>
               <MaterialIcons name="close" size={24} color="#666" />
@@ -169,7 +169,7 @@ function AnaliseModal({ visible, onClose, analise, loading }: {
               <View style={aStyles.loadingContainer}>
                 <ActivityIndicator size="large" color="#1E3A5F" />
                 <Text style={aStyles.loadingText}>Analisando dados...</Text>
-                <Text style={aStyles.loadingHint}>Gerando parecer personalizado com base nas avaliacoes</Text>
+                <Text style={aStyles.loadingHint}>Gerando parecer personalizado com base nas avaliações</Text>
               </View>
             ) : (
               renderText(analise)
@@ -178,7 +178,7 @@ function AnaliseModal({ visible, onClose, analise, loading }: {
           {!loading && (
             <View style={aStyles.footer}>
               <MaterialIcons name="info-outline" size={14} color="#BBB" />
-              <Text style={aStyles.footerText}>Analise gerada por IA. Consulte sempre um profissional.</Text>
+              <Text style={aStyles.footerText}>Análise gerada por IA. Consulte sempre um profissional.</Text>
             </View>
           )}
         </View>
@@ -279,14 +279,14 @@ export default function HistoricoScreen() {
       });
 
       if (error) {
-        setAnaliseText("Erro ao gerar analise. Verifique se a funcao esta configurada corretamente e tente novamente.");
+        setAnaliseText("Erro ao gerar análise. Verifique se a função está configurada corretamente e tente novamente.");
       } else if (data?.error) {
         setAnaliseText(data.error);
       } else {
-        setAnaliseText(data?.analise || "Nao foi possivel gerar a analise.");
+        setAnaliseText(data?.analise || "Não foi possível gerar a análise.");
       }
     } catch (e: any) {
-      setAnaliseText("Erro de conexao. Verifique sua internet e tente novamente.");
+      setAnaliseText("Erro de conexão. Verifique sua internet e tente novamente.");
     }
     setAnaliseLoading(false);
   }
@@ -321,10 +321,10 @@ export default function HistoricoScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: `Historico — ${contexto.titulo}` }} />
+      <Stack.Screen options={{ title: `Histórico — ${contexto.titulo}` }} />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <Text style={styles.childName}>{decodeURIComponent(criancaNome || "")}</Text>
-        <Text style={styles.totalText}>{avaliacoes.length} avaliacoes em {sessionKeys.length} sessoes</Text>
+        <Text style={styles.totalText}>{avaliacoes.length} avaliações em {sessionKeys.length} sessões</Text>
 
         {/* Line Chart */}
         {sessionSummaries.length > 0 && (
@@ -335,14 +335,14 @@ export default function HistoricoScreen() {
         {sessionKeys.length > 0 && (
           <TouchableOpacity style={[styles.analiseBtn, { borderColor: contexto.cor || "#1E3A5F" }]} onPress={requestAnalise}>
             <MaterialIcons name="psychology" size={22} color={contexto.cor || "#1E3A5F"} />
-            <Text style={[styles.analiseBtnText, { color: contexto.cor || "#1E3A5F" }]}>Analise e Aconselhamento</Text>
+            <Text style={[styles.analiseBtnText, { color: contexto.cor || "#1E3A5F" }]}>Análise e Aconselhamento</Text>
           </TouchableOpacity>
         )}
 
         {sessionKeys.length === 0 ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyText}>Nenhuma avaliacao registrada.</Text>
-            <Text style={styles.emptyHint}>Volte ao contexto e toque em "Avaliar" para comecar.</Text>
+            <Text style={styles.emptyText}>Nenhuma avaliação registrada.</Text>
+            <Text style={styles.emptyHint}>Volte ao contexto e toque em "Avaliar" para começar.</Text>
           </View>
         ) : (
           sessionKeys.map((key) => {

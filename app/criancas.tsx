@@ -59,7 +59,7 @@ export default function CriancasScreen() {
   return (
     <>
     <Stack.Screen options={{
-      title: "Selecionar Crianca",
+      title: "Selecionar Criança",
       headerRight: () => (
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           {auth.perfil === "admin" && (
@@ -75,8 +75,8 @@ export default function CriancasScreen() {
     }} />
     <View style={styles.container}>
       <View style={styles.topSection}>
-        <Text style={styles.hello}>Ola, {auth.nome}!</Text>
-        <Text style={styles.instrucao}>Selecione uma crianca para avaliar:</Text>
+        <Text style={styles.hello}>Olá, {auth.nome}!</Text>
+        <Text style={styles.instrucao}>Selecione uma criança para avaliar:</Text>
 
         {criancas.length > 3 && (
           <View style={styles.searchBar}>
@@ -102,8 +102,8 @@ export default function CriancasScreen() {
         {criancas.length === 0 ? (
           <View style={styles.empty}>
             <MaterialIcons name="child-care" size={64} color="#DDD" />
-            <Text style={styles.emptyText}>Nenhuma crianca vinculada</Text>
-            <Text style={styles.emptyHint}>Peca ao administrador para vincular voce a uma crianca.</Text>
+            <Text style={styles.emptyText}>Nenhuma criança vinculada</Text>
+            <Text style={styles.emptyHint}>Peça ao administrador para vincular você a uma criança.</Text>
             <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
               <MaterialIcons name="logout" size={18} color="#CC0000" />
               <Text style={styles.logoutText}>Sair</Text>

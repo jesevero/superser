@@ -1,12 +1,148 @@
-import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, ActivityIndicator, Modal, Image } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, ActivityIndicator, Modal, Image, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAuth } from "../_layout";
 import { supabase } from "../../data/supabase";
 import ImageUpload from "../../components/ImageUpload";
 
-type Crianca = { id: string; nome: string; data_nascimento: string | null; foto_url: string | null };
+type Crianca = {
+  id: string;
+  nome: string;
+  data_nascimento: string | null;
+  foto_url: string | null;
+  email_responsavel: string | null;
+  whatsapp: string | null;
+};
+
+const MONTHS = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
+
+function DatePicker({ value, onChange }: { value: string; onChange: (d: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const today = new Date();
+  const parsed = value ? new Date(value + "T12:00:00") : null;
+  const [year, setYear] = useState(parsed ? parsed.getFullYear() : today.getFullYear() - 5);
+  const [month, setMonth] = useState(parsed ? parsed.getMonth() : today.getMonth());
+  const [day, setDay] = useState(parsed ? parsed.getDate() : 1);
+
+  function daysInMonth(y: number, m: number) {
+    return new Date(y, m + 1, 0).getDate();
+  }
+
+  function confirm() {
+    const maxDay = daysInMonth(year, month);
+    const d = Math.min(day, maxDay);
+    const iso = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    onChange(iso);
+    setOpen(false);
+  }
+
+  function formatDisplay(iso: string): string {
+    const d = new Date(iso + "T12:00:00");
+    return `${d.getDate()} de ${MONTHS[d.getMonth()]} de ${d.getFullYear()}`;
+  }
+
+  const currentYear = today.getFullYear();
+  const years = Array.from({ length: 20 }, (_, i) => currentYear - i);
+  const maxDay = daysInMonth(year, month);
+  const days = Array.from({ length: maxDay }, (_, i) => i + 1);
+
+  return (
+    <>
+      <TouchableOpacity style={dpStyles.trigger} onPress={() => setOpen(true)}>
+        <MaterialIcons name="calendar-today" size={20} color="#1E3A5F" />
+        <Text style={[dpStyles.triggerText, !value && dpStyles.placeholder]}>
+          {value ? formatDisplay(value) : "Selecionar data de nascimento"}
+        </Text>
+      </TouchableOpacity>
+
+      <Modal visible={open} transparent animationType="fade">
+        <View style={dpStyles.overlay}>
+          <View style={dpStyles.card}>
+            <Text style={dpStyles.title}>Data de Nascimento</Text>
+
+            <View style={dpStyles.row}>
+              {/* Day */}
+              <View style={dpStyles.col}>
+                <Text style={dpStyles.label}>Dia</Text>
+                <ScrollView style={dpStyles.scroll} showsVerticalScrollIndicator={false}>
+                  {days.map((d) => (
+                    <TouchableOpacity key={d} style={[dpStyles.option, d === day && dpStyles.optionActive]} onPress={() => setDay(d)}>
+                      <Text style={[dpStyles.optionText, d === day && dpStyles.optionTextActive]}>{d}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* Month */}
+              <View style={[dpStyles.col, { flex: 2 }]}>
+                <Text style={dpStyles.label}>Mês</Text>
+                <ScrollView style={dpStyles.scroll} showsVerticalScrollIndicator={false}>
+                  {MONTHS.map((m, i) => (
+                    <TouchableOpacity key={i} style={[dpStyles.option, i === month && dpStyles.optionActive]} onPress={() => setMonth(i)}>
+                      <Text style={[dpStyles.optionText, i === month && dpStyles.optionTextActive]}>{m}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* Year */}
+              <View style={dpStyles.col}>
+                <Text style={dpStyles.label}>Ano</Text>
+                <ScrollView style={dpStyles.scroll} showsVerticalScrollIndicator={false}>
+                  {years.map((y) => (
+                    <TouchableOpacity key={y} style={[dpStyles.option, y === year && dpStyles.optionActive]} onPress={() => setYear(y)}>
+                      <Text style={[dpStyles.optionText, y === year && dpStyles.optionTextActive]}>{y}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+
+            <View style={dpStyles.actions}>
+              <TouchableOpacity style={dpStyles.cancelBtn} onPress={() => setOpen(false)}>
+                <Text style={dpStyles.cancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={dpStyles.clearBtn} onPress={() => { onChange(""); setOpen(false); }}>
+                <Text style={dpStyles.clearText}>Limpar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={dpStyles.confirmBtn} onPress={confirm}>
+                <Text style={dpStyles.confirmText}>Confirmar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </>
+  );
+}
+
+const dpStyles = StyleSheet.create({
+  trigger: { flexDirection: "row", alignItems: "center", backgroundColor: "#F5F7FA", borderRadius: 12, padding: 14, marginBottom: 12, gap: 10 },
+  triggerText: { fontSize: 16, color: "#333" },
+  placeholder: { color: "#BBB" },
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", padding: 24 },
+  card: { backgroundColor: "#FFF", borderRadius: 16, padding: 20 },
+  title: { fontSize: 18, fontWeight: "700", color: "#1E3A5F", marginBottom: 16, textAlign: "center" },
+  row: { flexDirection: "row", gap: 8, height: 200 },
+  col: { flex: 1 },
+  label: { fontSize: 12, fontWeight: "600", color: "#888", marginBottom: 6, textAlign: "center" },
+  scroll: { flex: 1 },
+  option: { paddingVertical: 8, paddingHorizontal: 6, borderRadius: 8, alignItems: "center" },
+  optionActive: { backgroundColor: "#1E3A5F" },
+  optionText: { fontSize: 14, color: "#444" },
+  optionTextActive: { color: "#FFF", fontWeight: "700" },
+  actions: { flexDirection: "row", gap: 10, marginTop: 16 },
+  cancelBtn: { flex: 1, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: "#DDD", alignItems: "center" },
+  cancelText: { color: "#666", fontWeight: "600" },
+  clearBtn: { flex: 1, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: "#CC0000", alignItems: "center" },
+  clearText: { color: "#CC0000", fontWeight: "600" },
+  confirmBtn: { flex: 1, padding: 12, borderRadius: 8, backgroundColor: "#1E3A5F", alignItems: "center" },
+  confirmText: { color: "#FFF", fontWeight: "700" },
+});
 
 export default function AdminCriancasScreen() {
   const router = useRouter();
@@ -18,6 +154,8 @@ export default function AdminCriancasScreen() {
   const [nome, setNome] = useState("");
   const [dataNasc, setDataNasc] = useState("");
   const [fotoUrl, setFotoUrl] = useState<string | null>(null);
+  const [emailResp, setEmailResp] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
 
@@ -37,6 +175,8 @@ export default function AdminCriancasScreen() {
     setNome("");
     setDataNasc("");
     setFotoUrl(null);
+    setEmailResp("");
+    setWhatsapp("");
     setMessage(null);
     setModalVisible(true);
   }
@@ -46,6 +186,8 @@ export default function AdminCriancasScreen() {
     setNome(c.nome);
     setDataNasc(c.data_nascimento || "");
     setFotoUrl(c.foto_url);
+    setEmailResp(c.email_responsavel || "");
+    setWhatsapp(c.whatsapp || "");
     setMessage(null);
     setModalVisible(true);
   }
@@ -55,9 +197,13 @@ export default function AdminCriancasScreen() {
     setSaving(true);
     setMessage(null);
 
-    const row: any = { nome: nome.trim(), foto_url: fotoUrl || null };
-    if (dataNasc.trim()) row.data_nascimento = dataNasc.trim();
-    else row.data_nascimento = null;
+    const row: any = {
+      nome: nome.trim(),
+      foto_url: fotoUrl || null,
+      data_nascimento: dataNasc.trim() || null,
+      email_responsavel: emailResp.trim() || null,
+      whatsapp: whatsapp.trim() || null,
+    };
 
     if (editingId) {
       const { error } = await supabase.from("criancas").update(row).eq("id", editingId);
@@ -84,7 +230,7 @@ export default function AdminCriancasScreen() {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.title}>{criancas.length} crianca(s)</Text>
+          <Text style={styles.title}>{criancas.length} criança(s)</Text>
           <TouchableOpacity style={styles.addBtn} onPress={openAdd}>
             <MaterialIcons name="add" size={20} color="#FFF" />
             <Text style={styles.addBtnText}>Adicionar</Text>
@@ -103,6 +249,18 @@ export default function AdminCriancasScreen() {
             <View style={styles.cardInfo}>
               <Text style={styles.cardName}>{c.nome}</Text>
               {c.data_nascimento && <Text style={styles.cardDate}>{c.data_nascimento}</Text>}
+              {c.whatsapp && (
+                <View style={styles.cardContactRow}>
+                  <MaterialIcons name="phone" size={12} color="#2E7D32" />
+                  <Text style={styles.cardContact}>{c.whatsapp}</Text>
+                </View>
+              )}
+              {c.email_responsavel && (
+                <View style={styles.cardContactRow}>
+                  <MaterialIcons name="email" size={12} color="#1E3A5F" />
+                  <Text style={styles.cardContact}>{c.email_responsavel}</Text>
+                </View>
+              )}
             </View>
             <TouchableOpacity onPress={() => openEdit(c)} style={styles.iconBtn}>
               <MaterialIcons name="edit" size={20} color="#1E3A5F" />
@@ -124,7 +282,7 @@ export default function AdminCriancasScreen() {
         <View style={styles.modalOverlay}>
           <ScrollView contentContainerStyle={styles.modalScroll}>
             <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>{editingId ? "Editar Crianca" : "Nova Crianca"}</Text>
+              <Text style={styles.modalTitle}>{editingId ? "Editar Criança" : "Nova Criança"}</Text>
 
               <View style={styles.photoRow}>
                 <ImageUpload
@@ -137,8 +295,33 @@ export default function AdminCriancasScreen() {
                 />
               </View>
 
-              <TextInput style={styles.input} placeholder="Nome" value={nome} onChangeText={setNome} autoCapitalize="words" />
-              <TextInput style={styles.input} placeholder="Data de nascimento (AAAA-MM-DD)" value={dataNasc} onChangeText={setDataNasc} />
+              <Text style={styles.fieldLabel}>Nome</Text>
+              <TextInput style={styles.input} placeholder="Nome completo" value={nome} onChangeText={setNome} autoCapitalize="words" />
+
+              <Text style={styles.fieldLabel}>Data de Nascimento</Text>
+              <DatePicker value={dataNasc} onChange={setDataNasc} />
+
+              <Text style={styles.fieldLabel}>E-mail do Responsável</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="email@exemplo.com"
+                value={emailResp}
+                onChangeText={setEmailResp}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+
+              <Text style={styles.fieldLabel}>WhatsApp</Text>
+              <View style={styles.whatsappRow}>
+                <MaterialIcons name="phone" size={20} color="#2E7D32" />
+                <TextInput
+                  style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                  placeholder="(11) 99999-9999"
+                  value={whatsapp}
+                  onChangeText={setWhatsapp}
+                  keyboardType="phone-pad"
+                />
+              </View>
 
               {message && (
                 <View style={[styles.msgBar, message.error ? styles.msgError : styles.msgSuccess]}>
@@ -176,8 +359,12 @@ const styles = StyleSheet.create({
   cardInfo: { flex: 1 },
   cardName: { fontSize: 16, fontWeight: "600", color: "#1E3A5F" },
   cardDate: { fontSize: 13, color: "#888", marginTop: 2 },
+  cardContactRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
+  cardContact: { fontSize: 12, color: "#888" },
   iconBtn: { padding: 8, marginLeft: 4 },
   photoRow: { alignItems: "center", marginBottom: 16 },
+  fieldLabel: { fontSize: 13, fontWeight: "600", color: "#666", marginBottom: 6 },
+  whatsappRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center" },
   modalScroll: { flexGrow: 1, justifyContent: "center", padding: 24 },
   modalContent: { backgroundColor: "#FFF", borderRadius: 16, padding: 24 },
