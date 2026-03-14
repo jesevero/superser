@@ -1,9 +1,10 @@
 import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity, Modal, Linking } from "react-native";
-import { useLocalSearchParams, Stack } from "expo-router";
+import { useLocalSearchParams, Stack, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { MaterialIcons } from "@expo/vector-icons";
 import Svg, { Text as SvgText, Line, G, Circle, Polyline, Defs, LinearGradient, Stop } from "react-native-svg";
 import { supabase } from "../../data/supabase";
+import { useAuth } from "../_layout";
 
 type AvaliacaoHist = {
   indicador_id: string;
@@ -265,6 +266,8 @@ export default function HistoricoScreen() {
   const { contextId, criancaId, criancaNome } = useLocalSearchParams<{
     contextId: string; criancaId: string; criancaNome: string;
   }>();
+  const { auth } = useAuth();
+  const router = useRouter();
 
   const [contexto, setContexto] = useState<any>(null);
   const [avaliacoes, setAvaliacoes] = useState<AvaliacaoHist[]>([]);
@@ -274,6 +277,7 @@ export default function HistoricoScreen() {
   const [analiseLoading, setAnaliseLoading] = useState(false);
   const [criancaWhatsapp, setCriancaWhatsapp] = useState<string | null>(null);
   const [criancaEmail, setCriancaEmail] = useState<string | null>(null);
+  const [isPremium, setIsPremium] = useState(false);
 
   useEffect(() => {
     if (contextId && criancaId) loadData();
@@ -287,6 +291,21 @@ export default function HistoricoScreen() {
     const { data: childData } = await supabase.from("criancas").select("whatsapp, email_responsavel").eq("id", criancaId).maybeSingle();
     setCriancaWhatsapp(childData?.whatsapp || null);
     setCriancaEmail(childData?.email_responsavel || null);
+
+    // Check subscription status
+    if (auth.avaliadorId) {
+      const { data: assinatura } = await supabase
+        .from("assinaturas")
+        .select("plano, status")
+        .eq("avaliador_id", auth.avaliadorId)
+        .maybeSingle();
+      setIsPremium(assinatura?.plano === "premium" && assinatura?.status === "active");
+    }
+
+    // Check if user is admin (admins always have access)
+    if (auth.perfil === "admin") {
+      setIsPremium(true);
+    }
 
     const { data } = await supabase
       .from("avaliacoes")
@@ -308,6 +327,11 @@ export default function HistoricoScreen() {
   }
 
   async function requestAnalise() {
+    if (!isPremium) {
+      router.push("/assinatura");
+      return;
+    }
+
     setAnaliseVisible(true);
     setAnaliseLoading(true);
     setAnaliseText("");
@@ -394,8 +418,10 @@ export default function HistoricoScreen() {
 
         {sessionKeys.length > 0 && (
           <TouchableOpacity style={[styles.analiseBtn, { borderColor: contexto.cor || "#1E3A5F" }]} onPress={requestAnalise}>
-            <MaterialIcons name="psychology" size={22} color={contexto.cor || "#1E3A5F"} />
-            <Text style={[styles.analiseBtnText, { color: contexto.cor || "#1E3A5F" }]}>Análise e Sugestões IA</Text>
+            <MaterialIcons name={isPremium ? "psychology" : "lock"} size={22} color={contexto.cor || "#1E3A5F"} />
+            <Text style={[styles.analiseBtnText, { color: contexto.cor || "#1E3A5F" }]}>
+              {isPremium ? "Análise e Sugestões IA" : "Análise IA (Premium)"}
+            </Text>
           </TouchableOpacity>
         )}
 

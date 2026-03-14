@@ -11,6 +11,7 @@ type AuthState = {
   userId: string | null;
   avaliadorId: string | null;
   nome: string | null;
+  email: string | null;
   perfil: string | null;
   ready: boolean;
 };
@@ -19,6 +20,7 @@ const defaultAuth: AuthState = {
   userId: null,
   avaliadorId: null,
   nome: null,
+  email: null,
   perfil: null,
   ready: false,
 };
@@ -94,6 +96,7 @@ export default function RootLayout() {
           userId: authId,
           avaliadorId: data.id,
           nome: data.nome,
+          email: data.email || null,
           perfil: data.perfil,
         };
       }
@@ -114,6 +117,7 @@ export default function RootLayout() {
             userId: authId,
             avaliadorId: byEmail.id,
             nome: byEmail.nome,
+            email: byEmail.email || null,
             perfil: byEmail.perfil,
           };
         }
@@ -143,6 +147,7 @@ export default function RootLayout() {
             userId: authId,
             avaliadorId: novo.id,
             nome: novo.nome,
+            email: novo.email || null,
             perfil: novo.perfil,
           };
         }
@@ -201,6 +206,7 @@ export default function RootLayout() {
         <Stack.Screen name="context/[id]" options={{ title: "" }} />
         <Stack.Screen name="avaliar/[contextId]/[categoryIndex]" options={{ title: "Avaliar", presentation: "modal" }} />
         <Stack.Screen name="historico/[contextId]" options={{ title: "Histórico" }} />
+        <Stack.Screen name="assinatura" options={{ title: "Assinatura" }} />
         <Stack.Screen name="admin/index" options={{ title: "Painel Admin" }} />
         <Stack.Screen name="admin/criancas" options={{ title: "Gerenciar Crianças" }} />
         <Stack.Screen name="admin/avaliadores" options={{ title: "Gerenciar Avaliadores" }} />

@@ -63,6 +63,18 @@ export default function AdminScreen() {
           <MaterialIcons name="chevron-right" size={24} color="#CCC" />
         </TouchableOpacity>
       ))}
+
+      {/* Subscription management */}
+      <TouchableOpacity style={[styles.card, styles.subscriptionCard]} onPress={() => router.push("/assinatura" as any)} activeOpacity={0.7}>
+        <View style={[styles.iconCircle, { backgroundColor: "#FFF3E0" }]}>
+          <MaterialIcons name="star" size={32} color="#E65100" />
+        </View>
+        <View style={styles.cardInfo}>
+          <Text style={styles.cardTitle}>Assinatura</Text>
+          <Text style={styles.cardSubtitle}>Gerenciar plano Premium</Text>
+        </View>
+        <MaterialIcons name="chevron-right" size={24} color="#CCC" />
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -74,6 +86,7 @@ const styles = StyleSheet.create({
   hello: { fontSize: 22, fontWeight: "700", color: "#1E3A5F", marginBottom: 4 },
   subtitle: { fontSize: 14, color: "#666", marginBottom: 24 },
   card: { backgroundColor: "#FFF", borderRadius: 14, padding: 18, marginBottom: 12, flexDirection: "row", alignItems: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
+  subscriptionCard: { marginTop: 12, borderWidth: 1, borderColor: "#E65100" },
   iconCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: "#E8F0FE", justifyContent: "center", alignItems: "center", marginRight: 16 },
   cardInfo: { flex: 1 },
   cardTitle: { fontSize: 17, fontWeight: "700", color: "#1E3A5F" },
