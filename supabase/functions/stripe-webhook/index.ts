@@ -65,22 +65,57 @@ Deno.serve(async (req) => {
         const subscriptionId = session.subscription;
 
         if (avaliadorId) {
-          // Fetch subscription details from Stripe
-          const subRes = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}`, {
-            headers: { "Authorization": `Bearer ${STRIPE_SECRET_KEY}` },
-          });
-          const sub = await subRes.json();
+          let periodoInicio = new Date().toISOString();
+          let periodoFim = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-          await supabase.from("assinaturas").upsert({
-            avaliador_id: avaliadorId,
-            stripe_customer_id: customerId,
-            stripe_subscription_id: subscriptionId,
-            plano: "premium",
-            status: "active",
-            periodo_inicio: new Date(sub.current_period_start * 1000).toISOString(),
-            periodo_fim: new Date(sub.current_period_end * 1000).toISOString(),
-            updated_at: new Date().toISOString(),
-          }, { onConflict: "avaliador_id" });
+          // Try to fetch subscription details from Stripe
+          if (subscriptionId && STRIPE_SECRET_KEY) {
+            try {
+              const subRes = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}`, {
+                headers: { "Authorization": `Bearer ${STRIPE_SECRET_KEY}` },
+              });
+              const sub = await subRes.json();
+              console.log("Stripe subscription response:", JSON.stringify(sub));
+              if (sub.current_period_start) {
+                periodoInicio = new Date(sub.current_period_start * 1000).toISOString();
+                periodoFim = new Date(sub.current_period_end * 1000).toISOString();
+              }
+            } catch (e) {
+              console.error("Error fetching subscription:", e);
+            }
+          }
+
+          // Check if record exists
+          const { data: existing } = await supabase
+            .from("assinaturas")
+            .select("id")
+            .eq("avaliador_id", avaliadorId)
+            .maybeSingle();
+
+          let dbResult;
+          if (existing) {
+            dbResult = await supabase.from("assinaturas").update({
+              stripe_customer_id: customerId,
+              stripe_subscription_id: subscriptionId,
+              plano: "premium",
+              status: "active",
+              periodo_inicio: periodoInicio,
+              periodo_fim: periodoFim,
+              updated_at: new Date().toISOString(),
+            }).eq("avaliador_id", avaliadorId);
+          } else {
+            dbResult = await supabase.from("assinaturas").insert({
+              avaliador_id: avaliadorId,
+              stripe_customer_id: customerId,
+              stripe_subscription_id: subscriptionId,
+              plano: "premium",
+              status: "active",
+              periodo_inicio: periodoInicio,
+              periodo_fim: periodoFim,
+              updated_at: new Date().toISOString(),
+            });
+          }
+          console.log("DB result:", JSON.stringify(dbResult));
         }
         break;
       }

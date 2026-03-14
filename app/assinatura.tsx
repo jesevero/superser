@@ -53,6 +53,7 @@ export default function AssinaturaScreen() {
     setMessage(null);
 
     try {
+      console.log("Checkout payload:", { avaliadorId: auth.avaliadorId, email: auth.email, priceId: STRIPE_PRICE_ID });
       const { data, error } = await supabase.functions.invoke("stripe-checkout", {
         body: {
           avaliadorId: auth.avaliadorId,
@@ -62,13 +63,21 @@ export default function AssinaturaScreen() {
         },
       });
 
-      if (error || data?.error) {
-        setMessage({ text: data?.error || "Erro ao iniciar pagamento.", error: true });
+      console.log("Checkout response:", { data, error });
+
+      if (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        setMessage({ text: `Erro: ${msg}`, error: true });
+      } else if (data?.error) {
+        setMessage({ text: data.error, error: true });
       } else if (data?.url) {
         await Linking.openURL(data.url);
+      } else {
+        setMessage({ text: "Resposta inesperada do servidor.", error: true });
       }
-    } catch (e) {
-      setMessage({ text: "Erro de conexão. Tente novamente.", error: true });
+    } catch (e: any) {
+      console.error("Checkout exception:", e);
+      setMessage({ text: `Erro: ${e?.message || "Conexão falhou."}`, error: true });
     }
     setCheckoutLoading(false);
   }
